@@ -1,2 +1,3 @@
 # sgi-tecba
-sistema de Gestión Inteligente | TecBA
+
+Sistema de Gestión Inteligente | TecBA
