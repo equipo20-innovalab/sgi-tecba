@@ -1,4 +1,4 @@
-# Inovalab — Habilitaciones de comercios de la CABA
+# Innovalab — Habilitaciones de comercios de la CABA
 
 Pipeline de datos que **carga, limpia y georreferencia** el padrón de habilitaciones
 comerciales de la Ciudad Autónoma de Buenos Aires (exports del portal
