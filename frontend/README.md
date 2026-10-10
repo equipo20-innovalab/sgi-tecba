@@ -116,3 +116,22 @@ git push origin feature/mi-nueva-funcionalidad
 
 
 Por último, ve a GitHub y abre un Pull Request (PR) hacia la rama main para que el equipo revise tu código antes de integrarlo.
+
+
+
+Solución de Problemas Frecuentes:
+Si al ejecutar npm run dev por primera vez te aparece un error en la terminal diciendo que falta Leaflet o Cannot find module 'tailwindcss', significa que algunas dependencias no se descargaron automáticamente con el npm install inicial.
+
+Además, es crucial asegurarnos de utilizar Tailwind CSS en su versión 3.x para mantener la compatibilidad con nuestros archivos de configuración actuales y evitar que se rompan los estilos.
+
+Para solucionarlo, frena tu servidor (Ctrl + C) y ejecuta estos dos comandos dentro de la carpeta frontend:
+
+1. Instalar la librería del mapa interactivo:
+
+Bash
+npm install leaflet
+2. Instalar el motor de estilos en la versión correcta (3.4.19):
+
+Bash
+npm install -D tailwindcss@3.4.19 postcss autoprefixer
+Una vez que ambas descargas finalicen, vuelve a levantar el proyecto con npm run dev y la interfaz cargará sin problemas.
