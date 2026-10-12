@@ -1,0 +1,22 @@
+# Entornos virtuales
+.venv/
+.venv-1/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Tests / notebooks
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Datos crudos, procesados y geo (pesados, no se versionan)
+data/
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
