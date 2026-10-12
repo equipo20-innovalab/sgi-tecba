@@ -18,13 +18,16 @@ inovalab_2/
 │   ├── cleaning.py           armonización de esquemas, filtros, imputaciones y dtypes
 │   ├── geografia.py          asignación de comuna (catastro + callejero, join oficial)
 │   ├── estadistica.py        cuartiles, outliers (IQR), Gini/Lorenz y χ²
-│   └── modelado.py           datasets de modelos (regresión y clasificación)
+│   ├── modelado.py           datasets de modelos (regresión y clasificación)
+│   └── oportunidad.py        clustering de comunas + índice de oportunidad 0-100
 ├── notebook/
-│   ├── 01_exploracion_y_limpieza.ipynb   orquestador: EDA + auditoría + gráficos + export
-│   └── 02_modelos.ipynb                  regresión (volumen) y clasificación (comuna)
+│   ├── 01_exploracion_y_limpieza.ipynb    orquestador: EDA + auditoría + gráficos + export
+│   ├── 02_modelos.ipynb                   regresión (volumen) y clasificación (comuna)
+│   └── 03_clustering_oportunidad.ipynb    KMeans/DBSCAN + índice de oportunidad
 ├── tests/
-│   ├── test_data.py          data contract del CSV procesado
-│   └── test_estadistica.py   tests unitarios de cuartiles/Gini (valores conocidos)
+│   ├── test_data.py           data contract del CSV procesado
+│   ├── test_estadistica.py    tests unitarios de cuartiles/Gini (valores conocidos)
+│   └── test_oportunidad.py    clustering, índice y recomendaciones
 ├── requirements.txt
 └── README.md
 ```
@@ -76,22 +79,44 @@ Las capas geográficas de `data/geo/` se descargan solas la primera vez (~16 MB)
   baseline. Confirma la V de Cramér (~0,08): la actividad está repartida pareja
   entre comunas y el rubro no la predice.
 
-## Tests (data contract)
+## Clustering e índice de oportunidad (notebook 03)
 
-`tests/test_data.py` valida el CSV procesado antes de cualquier modelo:
+`notebook/03_clustering_oportunidad.ipynb` (lógica en `src/oportunidad.py`)
+responde "dónde y qué conviene abrir" sin usar `anio` como serie temporal:
+
+* **Selección de k**: silhouette de KMeans para k=2..8 → **k=5 óptimo (0,38)**.
+* **Clustering de comunas** (KMeans y DBSCAN) con features de perfil:
+  `n_licencias`, `rubros_distintos`, `superficie_promedio`, `tasa_nuevas`,
+  `diversidad_top10`.
+* **Índice de oportunidad 0-100** por (comuna × rubro) con tres componentes
+  ponderados: **crecimiento** (cuota relativa del rubro en el año, no conteo
+  crudo — invariante al sesgo de cobertura de 2015), **baja saturación**
+  (rubro vs. media de la comuna) y **subrepresentación** (rubro vs. media de
+  la ciudad). Pesos por defecto: 40% / 40% / 20%.
+* **Recomendaciones** ordenadas por nota, filtrables por comuna o rubro
+  (búsqueda parcial case-insensitive). Ejemplo: comuna 4 / artículos
+  personales con crecimiento +27% → nota 96,9.
+
+Limitación: `anio` es el año del archivo fuente, no una serie temporal; el
+crecimiento es **tendencia entre el primer y el último año disponible**, no un
+pronóstico. Faltan 2016-2018 y 2022 en el padrón.
+
+## Tests (data contract)
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-21 tests en total. **Data contract (12):** esquema completo, volumen mínimo
+43 tests en total. **Data contract (12):** esquema completo, volumen mínimo
 (≥ 200k filas), `comuna` ∈ 1..15 con cobertura ≥ 90%, `comuna_fuente` con valores
 conocidos, `anio` ∈ 2015..2026, superficie no negativa, techos de nulos por
 columna, sin duplicados exactos, fechas parseables ≥ 70% y ≥ 7 archivos de origen.
 **Estadística (9):** Gini y Lorenz con valores conocidos, cuartiles y detección de
 outliers, χ² y V de Cramér (independencia/asociación perfecta) y agrupación de la
-cola. Si uno falla, el pipeline rompió una suposición que asumen el EDA, los
-modelos y los exports para RAG.
+cola. **Oportunidad (22):** normalización, features comuna×rubro (saturación,
+crecimiento por cuota), índice 0-100, clustering KMeans/DBSCAN y recomendaciones.
+Si uno falla, el pipeline rompió una suposición que asumen el EDA, los modelos,
+los exports para RAG y el asistente de oportunidades.
 
 ### Estrategia de `comuna` (híbrida, con trazabilidad)
 
