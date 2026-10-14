@@ -13,14 +13,12 @@ export const SearchBox = ({ onSearch }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!query.trim()) return;
-        // Si pasamos una función por props, la ejecutamos con la consulta
         if (onSearch) {
             onSearch(query);
         }
     };
 
     const handleVoiceSearch = () => {
-        // Simulación de interacción por voz para la estructura del MVP
         setIsListening(true);
         setTimeout(() => {
             setQuery('Evaluación de local comercial en Av. Corrientes');
@@ -29,50 +27,66 @@ export const SearchBox = ({ onSearch }) => {
     };
 
     return (
-        <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-6">
-            <div className="mb-4">
-                <h2 className="text-lg font-bold text-gcba-dark">Consulta Inteligente de Zonificación</h2>
-                <p className="text-sm text-slate-600">
-                    Ingrese una dirección, distrito o tipo de actividad comercial para verificar su viabilidad en la Ciudad.
+        <div className="w-full max-w-4xl mx-auto py-12 px-4">
+            <div className="text-center mb-10 space-y-4">
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
+                    Sistema de Gestión Inteligente
+                </h2>
+                <p className="text-lg text-slate-600">
+                    Los trámites que necesitás para realizar tu actividad, en un solo lugar.
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-                {/* Campo de Texto Principal */}
-                <div className="relative flex-1">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+            {/* Contenedor unificado del buscador (Formulario) */}
+            <form 
+                onSubmit={handleSubmit} 
+                className="flex flex-col sm:flex-row items-center bg-white p-2 rounded-2xl shadow-md gap-2"
+            >
+                {/* Campo de Texto Transparente */}
+                <div className="relative flex-1 w-full flex items-center">
+                    <span className="pl-4 text-slate-400 text-lg pointer-events-none">
                         🔍
                     </span>
                     <input
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Ej: Apto cafetería en Palermo, zonificación R2A..."
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gcba-primary focus:bg-white transition-all text-sm"
+                        placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación R2A..."
+                        className="w-full bg-transparent border-none py-3 px-4 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 text-base"
                     />
                 </div>
 
-                {/* Botón de Comandos por Voz (Funcionalidad Futura) */}
-                <button
-                    type="button"
-                    onClick={handleVoiceSearch}
-                    title="Consulta por voz (Próximamente)"
-                    className={`px-4 py-3 rounded-lg border font-medium text-sm flex items-center justify-center gap-2 transition-all ${isListening
-                            ? 'bg-red-50 text-red-600 border-red-300 animate-pulse'
-                            : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                {/* Contenedor de Botones (Voz(futuro) + Buscar) */}
+                <div className="flex w-full sm:w-auto gap-2 px-2 pb-2 sm:p-0 sm:pr-2">
+                    <button
+                        type="button"
+                        onClick={handleVoiceSearch}
+                        title="Consulta por voz (Próximamente)"
+                        className={`flex-1 sm:flex-none px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all ${
+                            isListening
+                                ? 'bg-red-50 text-red-600 animate-pulse'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
-                >
-                    <span>🎙️</span>
-                    <span className="hidden sm:inline">{isListening ? 'Escuchando...' : 'Voz'}</span>
-                </button>
+                    >       
+                            <svg /* cambie el inoco por uno de tailwind */
+                            xmlns="http://www.w3.org/2000/svg" 
+                              fill="none" 
+                              viewBox="0 0 24 24" 
+                              strokeWidth={2} 
+                              stroke="currentColor" 
+                              className="w-4 h-4 text-slate-500" >
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                            </svg>
+                        <span>{isListening ? 'Escuchando...' : 'Voz'}</span>
+                    </button>
 
-                {/* Botón de Envío de Consulta */}
-                <button
-                    type="submit"
-                    className="bg-gcba-primary hover:bg-blue-900 text-white font-medium px-6 py-3 rounded-lg transition-colors shadow-sm text-sm flex items-center justify-center"
-                >
-                    Consultar
-                </button>
+                    <button
+                        type="submit"
+                        className="flex-1 sm:flex-none bg-gcba-primary hover:bg-blue-900 text-white font-medium px-8 py-3 rounded-xl transition-colors text-sm"
+                    >
+                        Buscar
+                    </button>
+                </div>
             </form>
         </div>
     );
