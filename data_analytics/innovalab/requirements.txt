@@ -7,5 +7,11 @@ matplotlib==3.11.2
 scipy==1.18.1
 scikit-learn==1.9.1
 
+# APIs públicas del GCBA (src/apis_gcba.py): EPOK, USIG, BA Data
+requests==2.32.5
+
+# Carga de datos de referencia hacia PostgreSQL (src/export_postgres.py)
+psycopg[binary]==3.2.9
+
 # Tests (solo desarrollo): pip install pytest
 pytest==9.1.1
