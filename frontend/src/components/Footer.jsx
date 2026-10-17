@@ -1,6 +1,6 @@
 /**
  * @file Footer.jsx
- * @description Componente de pie de página institucional para el sistema SGI TECBA.
+ * @description Componente de pie de página institucional adaptado al diseño de Figma (Obelisco v2) para el SGI TECBA.
  * @author Equipo Frontend - SGI TECBA
  */
 
@@ -8,47 +8,62 @@ import React from 'react';
 
 export const Footer = () => {
     return (
-        <footer className="w-full bg-gcba-dark text-slate-300 mt-auto border-t border-slate-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {/* Columna de identidad */}
-                    <div>
-                        <h4 className="font-bold text-white text-sm mb-2">SGI — TECBA</h4>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                            Sistema de Gestión Inteligente desarrollado en el marco del convenio académico de desarrollo de software y transformación digital urbana.
-                        </p>
+        <footer className="w-full bg-[#031b26] text-slate-300 mt-auto border-t border-slate-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
+                
+                {/* 1. Sección de Teléfonos Útiles */}
+                <div className="mb-8 pb-8 border-b border-slate-800">
+                    <h4 className="font-bold text-white text-sm mb-3">Teléfonos útiles</h4>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs mb-3">
+                        <a href="tel:102" className="hover:underline text-slate-200"><strong>102</strong> - Niñez y Adolescencia</a>
+                        <a href="tel:103" className="hover:underline text-slate-200"><strong>103</strong> - Emergencias</a>
+                        <a href="tel:107" className="hover:underline text-slate-200"><strong>107</strong> - SAME</a>
+                        <a href="tel:911" className="hover:underline text-slate-200"><strong>911</strong> - Policía</a>
+                        <a href="tel:144" className="hover:underline text-slate-200"><strong>144</strong> - Violencia de Género</a>
+                        <a href="tel:147" className="hover:underline text-slate-200"><strong>147</strong> - Atención Ciudadana</a>
                     </div>
+                    <a href="#telefonos" className="text-xs text-cyan-400 hover:underline font-semibold">
+                        Ver todos los teléfonos
+                    </a>
+                </div>
 
-                    {/* Columna de enlaces rápidos */}
-                    <div>
-                        <h5 className="font-semibold text-white text-xs mb-2 uppercase tracking-wider">Enlaces de Interés</h5>
-                        <ul className="space-y-1 text-xs">
-                            <li>
-                                <a href="#inicio" className="hover:text-white transition-colors">Portal Institucional</a>
-                            </li>
-                            <li>
-                                <a href="#mapa" className="hover:text-white transition-colors">Visor Geográfico Urbano</a>
-                            </li>
-                            <li>
-                                <a href="#terminos" className="hover:text-white transition-colors">Términos y Condiciones</a>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Columna de soporte */}
-                    <div>
-                        <h5 className="font-semibold text-white text-xs mb-2 uppercase tracking-wider">Soporte Técnico</h5>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                            Equipo Frontend — SGI TECBA<br />
-                            Buenos Aires, Argentina
-                        </p>
+                {/* 2. Sección de Redes de la Ciudad */}
+                <div className="mb-10 pb-8 border-b border-slate-800">
+                    <h4 className="font-bold text-white text-sm mb-3">Redes de la Ciudad</h4>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                        <a href="#facebook" className="hover:underline text-slate-300">Facebook</a>
+                        <a href="#instagram" className="hover:underline text-slate-300">Instagram</a>
+                        <a href="#x" className="hover:underline text-slate-300">X</a>
+                        <a href="#youtube" className="hover:underline text-slate-300">YouTube</a>
+                        <a href="#linkedin" className="hover:underline text-slate-300">LinkedIn</a>
+                        <a href="#tiktok" className="hover:underline text-slate-300">TikTok</a>
+                        <a href="#pinterest" className="hover:underline text-slate-300">Pinterest</a>
                     </div>
                 </div>
 
-                {/* Línea de copyright y disclaimer */}
-                <div className="border-t border-slate-800 pt-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500">
-                    <p>© 2026 SGI TECBA. Todos los derechos reservados.</p>
-                    <p className="mt-2 sm:mt-0">Basado en estándares y directrices de portales de la Ciudad.</p>
+                {/* 3. Bloque Institucional y Logotipos */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 pb-8 border-b border-slate-800">
+                    <div className="flex items-center gap-6">
+                        {/* Logotipo oficial GCBA simulado/adaptado con assets */}
+                        <div className="flex items-center space-x-2">
+                            <span className="font-bold tracking-tight text-white text-sm">Buenos Aires Ciudad</span>
+                        </div>
+                    </div>
+                    
+                    {/* Enlaces legales obligatorios según Figma */}
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                        <a href="#boletin" className="hover:underline text-slate-300">Boletín Oficial</a>
+                        <a href="#terminos" className="hover:underline text-slate-300">Términos y condiciones</a>
+                        <a href="#privacidad" className="hover:underline text-slate-300">Política de privacidad</a>
+                        <a href="#oficios" className="hover:underline text-slate-300">Oficios judiciales</a>
+                        <a href="#transparencia" className="hover:underline text-slate-300">Transparencia</a>
+                    </div>
+                </div>
+
+                {/* 4. Copyright y Licencia */}
+                <div className="text-[11px] text-slate-500 leading-relaxed">
+                    <p>Los contenidos de buenosaires.gob.ar están licenciados bajo Creative Commons Reconocimiento 2.5 Argentina License.</p>
+                    <p className="mt-1">© 2026 SGI TECBA — Convenio Académico de Transformación Digital Urbana.</p>
                 </div>
             </div>
         </footer>
