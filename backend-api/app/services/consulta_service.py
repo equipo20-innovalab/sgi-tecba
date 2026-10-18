@@ -38,9 +38,19 @@ FUENTES_MVP = [
 
 def procesar_consulta(db: Session, req: ConsultaRequest) -> ConsultaResponse:
     """Flujo completo del endpoint."""
-    # 1. Extracción de actividad y dirección del texto
-    actividad = extraer_actividad(req.texto)
-    direccion, tiene_altura = extraer_direccion(req.texto)
+    # PRIORIDAD AL MODO ESTRUCTURADO
+    if req.rubro and req.direccion:
+        actividad = req.rubro
+        direccion = req.direccion
+        tiene_altura = True
+    elif req.texto:
+        actividad = extraer_actividad(req.texto)
+        direccion, tiene_altura = extraer_direccion(req.texto)
+    else:
+        # Fallback
+        actividad = None
+        direccion = None
+        tiene_altura = False
 
     # 2. Geocodificación
     if direccion and tiene_altura:

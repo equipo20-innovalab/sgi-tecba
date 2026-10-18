@@ -1,11 +1,22 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 
 
 class ConsultaRequest(BaseModel):
-    """Consulta en lenguaje natural del usuario."""
-    texto: str = Field(..., min_length=3, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'")
-    sesion_id: Optional[str] = Field(None, description="Para preguntas de seguimiento")
+    # Modo 1: Lenguaje natural
+    texto: Optional[str] = Field(None, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'")
+    
+    # Modo 2: Estructurado 
+    rubro: Optional[str] = Field(None, description="Ej: 'Cafetería'")
+    direccion: Optional[str] = Field(None, description="Ej: 'Av. Corrientes 2500'")
+    
+    sesion_id: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validar_inputs(self):
+        if not self.texto and not (self.rubro and self.direccion):
+            raise ValueError("Enviar 'texto' o la combinación de 'rubro' y 'direccion'")
+        return self
 
 
 class Ubicacion(BaseModel):
