@@ -22,7 +22,7 @@ export const Navbar = () => {
                     <img 
                         src="/logo_ba_corto.png" 
                         alt="Gobierno de la Ciudad de Buenos Aires - Inicio" 
-                        style={{ height: '50px' }} 
+                        style={{ height: '200px' }} 
                     />
                 </a>
                 
