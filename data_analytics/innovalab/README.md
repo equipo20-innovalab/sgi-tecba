@@ -121,8 +121,10 @@ las parcelas con `epok_fichas` y las habilitaciones.
 
 El análisis revisa estructura y tipos, nulos, duplicados y formato de `smp`, y
 explora usos permitidos (`uso_1`), edificabilidad (`uni_edif_1`), factores FOT,
-y distribución por comuna. Incluye cuantiles, diagnóstico de valores atípicos
-por IQR y gráficos de distribuciones, valores negativos, comunas y faltantes.
+y distribución por comuna. Incluye cuantiles (min, cuartiles, P90, P95, P99 y
+máximo), diagnóstico IQR de valores atípicos y tres figuras: distribuciones de
+edificabilidad/FOT, resumen visual con boxplots, parcelas por comuna y FOT
+negativos, y columnas con mayor porcentaje de nulos.
 
 La limpieza recorta espacios, convierte marcadores textuales de ausencia en
 nulos, normaliza `smp` a mayúsculas y convierte las variables clave a tipos
@@ -134,6 +136,38 @@ candidatos a atípicos. Antes de exportar, valida que `smp` sea completa y únic
 Las columnas `dist_*` pueden tener nulos estructurales porque solo aplican a
 parcelas en zonas de influencia. Los candidatos identificados por IQR son una
 señal para revisar, no errores confirmados.
+
+### Densidad y concentración comercial por manzana
+
+El bloque usa `data/processed/habilitaciones_caba_clean.csv` y considera los
+registros con `fecha_habilitacion` efectiva (154.473 en los datos actuales).
+Agrupa por sección/manzana, comuna y rubro para calcular locales y superficie
+por rubro, el total de locales de cada manzana y la participación porcentual de
+cada rubro (`prop_rubro_en_manzana`). El resultado actual contiene 86.786
+combinaciones manzana-rubro. La participación mide concentración relativa; por
+sí sola no prueba saturación ni mide demanda.
+
+### Índice de compatibilidad: prueba ilustrativa
+
+El notebook toma hasta 500 habilitaciones con `smp` y rubro, y muestra cómo
+combinar una matriz de usos del Código Urbanístico con antecedentes históricos
+de habilitaciones en la misma parcela. La matriz de estados (`permitido`,
+`condicionado`, `prohibido`) es **simulada** y se asigna a rubros de ejemplo:
+el puntaje resultante no representa una evaluación normativa real ni debe
+usarse para decidir si una actividad está permitida.
+
+### Volumen de trámites y ejecución
+
+`calcular_tiempos_promedio_tramites()` calcula duraciones solo si existe
+`fecha_inicio`. El padrón actual no incluye esa columna, por lo que el notebook
+presenta el volumen de habilitaciones por tipo de trámite y año; no reporta
+tiempos de resolución.
+
+Para ejecutar este análisis desde la raíz de `data_analytics/innovalab`:
+
+```bash
+jupyter nbconvert --to notebook --execute --inplace notebook/04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb
+```
 
 ## APIs públicas del GCBA (`src/apis_gcba.py`)
 
