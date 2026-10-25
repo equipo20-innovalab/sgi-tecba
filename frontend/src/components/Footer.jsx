@@ -10,7 +10,7 @@ export const Footer = () => {
     return (
         <footer className="w-full bg-[#031b26] text-slate-300 mt-auto border-t border-slate-800">
             <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
-                
+
                 {/* 1. Sección de Teléfonos Útiles */}
                 <div className="mb-8 pb-8 border-b border-slate-800">
                     <h4 className="font-bold text-white text-sm mb-3">Teléfonos útiles</h4>
@@ -30,14 +30,28 @@ export const Footer = () => {
                 {/* 2. Sección de Redes de la Ciudad */}
                 <div className="mb-10 pb-8 border-b border-slate-800">
                     <h4 className="font-bold text-white text-sm mb-3">Redes de la Ciudad</h4>
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
-                        <a href="#facebook" className="hover:underline text-slate-300">Facebook</a>
-                        <a href="#instagram" className="hover:underline text-slate-300">Instagram</a>
-                        <a href="#x" className="hover:underline text-slate-300">X</a>
-                        <a href="#youtube" className="hover:underline text-slate-300">YouTube</a>
-                        <a href="#linkedin" className="hover:underline text-slate-300">LinkedIn</a>
-                        <a href="#tiktok" className="hover:underline text-slate-300">TikTok</a>
-                        <a href="#pinterest" className="hover:underline text-slate-300">Pinterest</a>
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 text-xs items-center">
+                        <a href="#facebook" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>🌐</span> Facebook
+                        </a>
+                        <a href="#instagram" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>📸</span> Instagram
+                        </a>
+                        <a href="#x" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>✏️</span> X
+                        </a>
+                        <a href="#youtube" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>▶️</span> YouTube
+                        </a>
+                        <a href="#linkedin" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>💼</span> LinkedIn
+                        </a>
+                        <a href="#tiktok" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>🎵</span> TikTok
+                        </a>
+                        <a href="#pinterest" className="hover:text-white transition-colors flex items-center gap-2 text-slate-300">
+                            <span>🖼️</span> Pinterest
+                        </a>
                     </div>
                 </div>
 
@@ -49,7 +63,7 @@ export const Footer = () => {
                             <span className="font-bold tracking-tight text-white text-sm">Buenos Aires Ciudad</span>
                         </div>
                     </div>
-                    
+
                     {/* Enlaces legales obligatorios según Figma */}
                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
                         <a href="#boletin" className="hover:underline text-slate-300">Boletín Oficial</a>
