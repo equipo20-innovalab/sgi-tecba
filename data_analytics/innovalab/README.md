@@ -31,7 +31,9 @@ inovalab_2/
 ├── notebook/
 │   ├── 01_exploracion_y_limpieza.ipynb    orquestador: EDA + auditoría + gráficos + export
 │   ├── 02_modelos.ipynb                   regresión (volumen) y clasificación (comuna)
-│   └── 03_clustering_oportunidad.ipynb    KMeans/DBSCAN + índice de oportunidad
+│   ├── 03_clustering_oportunidad.ipynb    KMeans/DBSCAN + índice de oportunidad
+│   └── 04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb
+│                                           EDA y limpieza del Código Urbanístico de CABA
 ├── tests/
 │   ├── test_data.py           data contract del CSV procesado
 │   ├── test_estadistica.py    tests unitarios de cuartiles/Gini (valores conocidos)
@@ -109,6 +111,29 @@ responde "dónde y qué conviene abrir" sin usar `anio` como serie temporal:
 Limitación: `anio` es el año del archivo fuente, no una serie temporal; el
 crecimiento es **tendencia entre el primer y el último año disponible**, no un
 pronóstico. Faltan 2016-2018 y 2022 en el padrón.
+
+## Exploración y limpieza del Código Urbanístico (notebook 04)
+
+`notebook/04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb` analiza
+`data/raw/codigo-urbanistico.csv` y exporta
+`data/processed/codigo_urbanistico_limpio.csv`. La clave `smp` permite cruzar
+las parcelas con `epok_fichas` y las habilitaciones.
+
+El análisis revisa estructura y tipos, nulos, duplicados y formato de `smp`, y
+explora usos permitidos (`uso_1`), edificabilidad (`uni_edif_1`), factores FOT,
+y distribución por comuna. Incluye cuantiles, diagnóstico de valores atípicos
+por IQR y gráficos de distribuciones, valores negativos, comunas y faltantes.
+
+La limpieza recorta espacios, convierte marcadores textuales de ausencia en
+nulos, normaliza `smp` a mayúsculas y convierte las variables clave a tipos
+numéricos. Solo descarta filas sin datos utilizables en `smp`, `uso_1`,
+`uni_edif_1`, `fot_em_1` o `comuna`; conserva nulos en columnas opcionales y
+dispersas, y no elimina ni corrige automáticamente valores FOT negativos o
+candidatos a atípicos. Antes de exportar, valida que `smp` sea completa y única.
+
+Las columnas `dist_*` pueden tener nulos estructurales porque solo aplican a
+parcelas en zonas de influencia. Los candidatos identificados por IQR son una
+señal para revisar, no errores confirmados.
 
 ## APIs públicas del GCBA (`src/apis_gcba.py`)
 
