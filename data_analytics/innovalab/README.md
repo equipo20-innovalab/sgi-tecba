@@ -13,18 +13,30 @@ inovalab_2/
 │   ├── raw/                  9 CSV crudos del GCBA
 │   ├── geo/                  capas oficiales: comunas.geojson, manzanas, callejero
 │   └── processed/            salida del pipeline: habilitaciones_caba_clean.csv
+├── db/
+│   ├── seed/
+│   │   └── rubros_requisitos.csv   checklist para abrir un local: requisitos por rubro/etapa
+│   └── schema.sql                  DDL de PostgreSQL (rubros_requisitos, habilitaciones, epok_fichas)
 ├── src/
 │   ├── data_loader.py        carga con pathlib (rutas relativas) + detección de separador
 │   ├── cleaning.py           armonización de esquemas, filtros, imputaciones y dtypes
 │   ├── geografia.py          asignación de comuna (catastro + callejero, join oficial)
 │   ├── estadistica.py        cuartiles, outliers (IQR), Gini/Lorenz y χ²
-│   └── modelado.py           datasets de modelos (regresión y clasificación)
+│   ├── modelado.py           datasets de modelos (regresión y clasificación)
+│   ├── oportunidad.py        clustering de comunas + índice de oportunidad 0-100
+│   ├── apis_gcba.py          clientes de APIs públicas: EPOK, USIG, BA Data
+│   ├── limpiar_smp.py        normaliza SMP malformados del padrón (rellena ceros)
+│   ├── enriquecer_epok.py    enriquece el padrón con la ficha catastral de EPOK
+│   └── export_postgres.py    carga datos hacia PostgreSQL (rubros_requisitos + habilitaciones)
 ├── notebook/
-│   ├── 01_exploracion_y_limpieza.ipynb   orquestador: EDA + auditoría + gráficos + export
-│   └── 02_modelos.ipynb                  regresión (volumen) y clasificación (comuna)
+│   ├── 01_exploracion_y_limpieza.ipynb    orquestador: EDA + auditoría + gráficos + export
+│   ├── 02_modelos.ipynb                   regresión (volumen) y clasificación (comuna)
+│   └── 03_clustering_oportunidad.ipynb    KMeans/DBSCAN + índice de oportunidad
 ├── tests/
-│   ├── test_data.py          data contract del CSV procesado
-│   └── test_estadistica.py   tests unitarios de cuartiles/Gini (valores conocidos)
+│   ├── test_data.py           data contract del CSV procesado
+│   ├── test_estadistica.py    tests unitarios de cuartiles/Gini (valores conocidos)
+│   ├── test_oportunidad.py    clustering, índice y recomendaciones
+│   └── test_apis_gcba.py      contratos de los clientes de APIs GCBA
 ├── requirements.txt
 └── README.md
 ```
@@ -76,22 +88,250 @@ Las capas geográficas de `data/geo/` se descargan solas la primera vez (~16 MB)
   baseline. Confirma la V de Cramér (~0,08): la actividad está repartida pareja
   entre comunas y el rubro no la predice.
 
-## Tests (data contract)
+## Clustering e índice de oportunidad (notebook 03)
 
-`tests/test_data.py` valida el CSV procesado antes de cualquier modelo:
+`notebook/03_clustering_oportunidad.ipynb` (lógica en `src/oportunidad.py`)
+responde "dónde y qué conviene abrir" sin usar `anio` como serie temporal:
+
+* **Selección de k**: silhouette de KMeans para k=2..8 → **k=5 óptimo (0,38)**.
+* **Clustering de comunas** (KMeans y DBSCAN) con features de perfil:
+  `n_licencias`, `rubros_distintos`, `superficie_promedio`, `tasa_nuevas`,
+  `diversidad_top10`.
+* **Índice de oportunidad 0-100** por (comuna × rubro) con tres componentes
+  ponderados: **crecimiento** (cuota relativa del rubro en el año, no conteo
+  crudo — invariante al sesgo de cobertura de 2015), **baja saturación**
+  (rubro vs. media de la comuna) y **subrepresentación** (rubro vs. media de
+  la ciudad). Pesos por defecto: 40% / 40% / 20%.
+* **Recomendaciones** ordenadas por nota, filtrables por comuna o rubro
+  (búsqueda parcial case-insensitive). Ejemplo: comuna 4 / artículos
+  personales con crecimiento +27% → nota 96,9.
+
+Limitación: `anio` es el año del archivo fuente, no una serie temporal; el
+crecimiento es **tendencia entre el primer y el último año disponible**, no un
+pronóstico. Faltan 2016-2018 y 2022 en el padrón.
+
+## APIs públicas del GCBA (`src/apis_gcba.py`)
+
+Clientes de las APIs oficiales del GCBA, con **contratos verificados en vivo**
+(oct-2026). Todos degradan con gracia (timeout + retry + `None`) para no tumbar
+el pipeline si una API del Estado se cae.
+
+| API | Uso | Estado real |
+|-----|-----|-------------|
+| **EPOK Catastro** (`/catastro/parcela/?smp=…`) | ficha del inmueble por SMP: **m²** totales/cubiertos, centroide, dirección, partida, puertas | ✅ funciona (JSON) |
+| **BA Data** (CKAN `…/api/3/action/…`) | buscar/detalle de datasets (`package_search`, `package_show`); fuente de los CSV | ✅ funciona |
+| **USIG normalizar** (`/normalizar/?direccion=…`) | normaliza/geocodifica direcciones | ⚠️ intermitente: a veces responde en <1s, a veces timeout >45s |
+
+Uso rápido:
+
+```python
+from src.apis_gcba import consultar_epok_por_smp, metros_cuadrados, buscar_datasets_badata
+
+ficha = consultar_epok_por_smp("01-001-001A")     # -> dict con la ficha catastral
+metros_cuadrados(ficha)                             # -> {'total': 1088.0, 'cubierta': 6735.0}
+buscar_datasets_badata("habilitaciones")            # -> lista de datasets de BA Data
+```
+
+> El pipeline sigue georreferenciando con callejero/catastro (91,8%) y **no
+> depende de USIG en vivo**: si USIG no responde, se ignora. Ver `PRODUCTO.md`
+> para el alcance por fases de la plataforma.
+
+## Datos de referencia para el backend (`rubros_requisitos`)
+
+Responde la pregunta **"¿qué necesito para abrir un local de X?"**: un
+**checklist ordenado por etapa** con todos los requisitos (previos,
+habilitación, propios del rubro, tributarios y operativos), la documentación de
+cada uno, el organismo y el link oficial. Es una tabla **curada manualmente**
+(fuente de verdad: el CSV en `db/seed/`), pensada para que el backend la
+consulte con un lookup SQL simple.
+
+| Columna | Descripción |
+|---------|-------------|
+| `rubro` | `Cafetería`, o `General` si el requisito aplica a cualquier local |
+| `tramite` | Requisito/trámite (ej. `Registro de Bromatología`) |
+| `etapa` | `previo` → `habilitacion` → `rubro` → `tributario` → `operativo` |
+| `orden` | Posición dentro de la etapa (para presentarlo en orden) |
+| `obligatorio` | `Obligatorio`, `Opcional` o `Condicional` |
+| `aplica_cuando` | Condición si es `Condicional` (NULL si no) |
+| `documentacion_requerida` | Documentos que lleva ese requisito |
+| `organismo` | Organismo que lo otorga (ej. `AGC`) |
+| `link_oficial` | URL del trámite oficial |
+
+**Cobertura actual:** 12 requisitos (7 `General` + 5 de `Cafetería`), que cubren
+el recorrido completo de abrir un local gastronómico. Se extiende agregando filas
+al CSV (`db/seed/rubros_requisitos.csv`); el upsert evita duplicados.
+
+### Cargar los datos en PostgreSQL
+
+```bash
+# 1. Crear las tablas
+psql "$DATABASE_URL" -f db/schema.sql
+
+# 2. Cargar el CSV (idempotente: usa UPSERT sobre rubro+tramite)
+python src/export_postgres.py
+
+# Opcional: validar sin escribir
+python src/export_postgres.py --dry-run
+```
+
+Requiere `psycopg` (ya en `requirements.txt`) y la variable `DATABASE_URL`.
+
+### Cómo se consulta (SQL)
+
+El backend conecta con el driver `pg` y una única variable `DATABASE_URL`
+(vive en `backend/.env`, que está en `.gitignore` — la clave no se commitea):
+
+```bash
+# backend/.env
+DATABASE_URL=postgresql://usuario:clave@localhost:5432/innovalab
+```
+
+Consulta de ejemplo (el checklist de un rubro, sumando los requisitos `General`):
+
+```sql
+SELECT tramite, etapa, obligatorio, documentacion_requerida
+  FROM rubros_requisitos
+ WHERE rubro IN ('General', 'Cafetería')
+ ORDER BY etapa, orden;
+```
+
+## Qué preguntas responde esta base de datos
+
+Todo lo que sigue está **cargado y verificado en PostgreSQL**: son las preguntas
+de producto que la base contesta hoy, con la consulta SQL que las resuelve.
+
+> **📌 Handoff a Backend (ticket #11 — "API's de integración territorial y
+> Trámites de habilitaciones comerciales"):** esta base quedó **lista para que
+> el equipo de backend la conecte** y exponga las preguntas de abajo como
+> endpoints. El trabajo del lado datos (integración de APIs GCBA + dataset
+> histórico, limpieza de SMP, enriquecimiento catastral y checklist de
+> requisitos) está completo. La `DATABASE_URL` se pasa por canal seguro (la
+> clave **no** va en el repo). **Alcance piloto (MVP):** cubre el caso
+> **cafetería / pizzería**; aún no es la totalidad de la ciudad.
+
+### 1. ¿Qué necesito para abrir un local de X? (checklist)
+**Tabla:** `rubros_requisitos` · **12 requisitos** (7 `General` + 5 de `Cafetería`),
+ordenados por etapa, con documentación, organismo y link oficial.
+
+```sql
+SELECT etapa, orden, tramite, obligatorio, aplica_cuando,
+       documentacion_requerida, organismo, link_oficial
+  FROM rubros_requisitos
+ WHERE rubro IN ('General', 'Cafetería')   -- 'Cafetería' = el rubro consultado
+ ORDER BY etapa, orden;
+```
+*Ejemplo de salida:* `[previo] Documentación personal del titular (Obligatorio)`,
+`[rubro] Registro de Bromatología (Obligatorio)`, `[rubro] R.I.F.C.I. (Condicional: si hay instalaciones contra incendios)`…
+
+### 2. ¿Cuántas habilitaciones hay en la comuna X?
+**Tabla:** `habilitaciones` · **216.991 filas** del padrón de la CABA.
+
+```sql
+SELECT count(*) FROM habilitaciones WHERE comuna = 3;
+-- o el detalle, filtrando por rubro / año:
+SELECT solicitud, descripcion_rubro, superficie, smp, calles, anio
+  FROM habilitaciones
+ WHERE comuna = 3
+   AND unaccent(descripcion_rubro) ILIKE unaccent('%cafetería%')
+ ORDER BY anio DESC
+ LIMIT 50;
+```
+
+### 3. ¿Qué rubros se habilitan en una zona o año?
+**Tabla:** `habilitaciones` · agrupaciones por comuna, rubro o año.
+
+```sql
+SELECT comuna, count(*) AS habilitaciones
+  FROM habilitaciones
+ GROUP BY comuna ORDER BY habilitaciones DESC;
+```
+
+### 4. ¿Cuántos m² tiene el local de la calle Y? (ficha catastral)
+**Tablas:** `habilitaciones` + `epok_fichas` (JOIN por `smp`) · **datos oficiales
+de EPOK**: m² reales, coordenadas, pisos. Rellena los casos en que el padrón trae
+`superficie = 0`.
+
+```sql
+SELECT h.descripcion_rubro, h.calles,
+       h.superficie     AS m2_en_padron,
+       e.superficie_total AS m2_reales,
+       e.lat, e.lng, e.pisos_sobre_rasante
+  FROM habilitaciones h
+  LEFT JOIN epok_fichas e ON h.smp = e.smp
+ WHERE h.smp = '001-001-008A';
+-- -> m2_en_padron = 0, pero m2_reales = 495 (dato de EPOK)
+```
+
+### 🗺️ Enriquecimiento catastral (EPOK → `epok_fichas`)
+
+Complementa el padrón con la ficha catastral oficial del GCBA por SMP: **coordenadas
+(mapa), superficies reales, pisos, unidades y frente/fondo**. Resuelve el caso en
+que el dataset trae `superficie = 0` (sin dato) pero el SMP sí existe en catastro.
+
+```bash
+# 1. Limpiar SMP malformados (rellena ceros; conserva original en smp_original)
+python src/limpiar_smp.py            # --dry-run para ver el alcance
+
+# 2. Enriquecer con EPOK (reanudable; salta SMP ya cargados)
+python src/enriquecer_epok.py --probar      # prueba con 3 SMP
+python src/enriquecer_epok.py --limite 500  # lote de prueba
+python src/enriquecer_epok.py               # todo lo pendiente (~37k SMP)
+```
+
+> La limpieza **recupera ~92%** de los SMP malformados del dataset origen. Aun así,
+> una parte de los SMP (históricos) ya no existe en el catastro actual y EPOK no los
+> resuelve: son filas sin ficha, no un error del proceso.
+
+### 🌐 APIs públicas del GCBA (clientes Python en `src/apis_gcba.py`)
+
+Clientes verificados en vivo (oct-2026), con timeout/retry y degradación a
+`None` si una API del Estado se cae. Son del **lado Python** (pipeline):
+
+| API | Qué responde | Uso en el proyecto |
+|-----|--------------|--------------------|
+| **EPOK Catastro** | ficha del inmueble por SMP: **m²** totales/cubiertos, centroide, dirección, pisos | ✅ materializada en `epok_fichas` (ver sección de enriquecimiento) |
+| **BA Data (CKAN)** | catálogo de datasets del GCBA (incluye el padrón de habilitaciones) | metadatos / descargas de datos abiertos |
+| **USIG normalizar** | normaliza/geocodifica direcciones (intermitente) | convertir una dirección a coordenadas |
+
+> EPOK ya quedó **materializada en la BD** (`epok_fichas`, cargada por
+> `enriquecer_epok.py`): el backend la consulta como una tabla común, sin llamar
+> a la API del GCBA en vivo. BA Data y USIG siguen siendo clientes Python.
+
+> El padrón de habilitaciones **no está en el repo** (pesa y `data/` está en
+> `.gitignore`): se genera corriendo el pipeline y luego se carga a PostgreSQL
+> con `python src/export_postgres.py --habilitaciones`.
+
+### Cómo verificar que los datos están cargados
+
+```bash
+# Backend: crear tablas + cargar checklist y padrón
+psql "$DATABASE_URL" -f db/schema.sql
+python src/export_postgres.py            # rubros_requisitos
+python src/export_postgres.py --habilitaciones
+
+# Consultas de control (deben devolver filas)
+psql "$DATABASE_URL" -c "SELECT count(*) FROM rubros_requisitos;"   # 12
+psql "$DATABASE_URL" -c "SELECT count(*) FROM habilitaciones;"       # 216991
+psql "$DATABASE_URL" -c "SELECT count(*) FROM epok_fichas;"          # crece
+```
+
+## Tests (data contract)
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-21 tests en total. **Data contract (12):** esquema completo, volumen mínimo
+54 tests en total. **Data contract (12):** esquema completo, volumen mínimo
 (≥ 200k filas), `comuna` ∈ 1..15 con cobertura ≥ 90%, `comuna_fuente` con valores
 conocidos, `anio` ∈ 2015..2026, superficie no negativa, techos de nulos por
 columna, sin duplicados exactos, fechas parseables ≥ 70% y ≥ 7 archivos de origen.
 **Estadística (9):** Gini y Lorenz con valores conocidos, cuartiles y detección de
 outliers, χ² y V de Cramér (independencia/asociación perfecta) y agrupación de la
-cola. Si uno falla, el pipeline rompió una suposición que asumen el EDA, los
-modelos y los exports para RAG.
+cola. **Oportunidad (22):** normalización, features comuna×rubro (saturación,
+crecimiento por cuota), índice 0-100, clustering KMeans/DBSCAN y recomendaciones.
+**APIs GCBA (11):** clientes de EPOK/USIG/BA Data con mocks (timeouts, parseo,
+degradación). Si uno falla, el pipeline rompió una suposición que asumen el EDA,
+los modelos, los exports para RAG y el asistente de oportunidades.
 
 ### Estrategia de `comuna` (híbrida, con trazabilidad)
 
