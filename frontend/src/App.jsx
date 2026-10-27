@@ -6,66 +6,150 @@
 
 import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
-import { SearchBox } from './components/SearchBox';
-import { ResultPanel } from './components/ResultPanel';
-import MapView from './components/MapView';
 import { Footer } from './components/Footer';
+import ConfirmacionView from './components/ConfirmacionView';
+import TramitesView from './components/TramitesView';
 
 export default function App() {
-  // Estado para manejar los datos dinámicos de la consulta urbana
-  const [searchResult, setSearchResult] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [pasoActual, setPasoActual] = useState('home'); // 'home' | 'requisitos' | 'tramites'
 
-  const handleSearch = (queryText) => {
-    // Simulamos la respuesta de la búsqueda (preparado para conectar con FastAPI en la siguiente fase)
-    console.log("Procesando consulta urbana para:", queryText);
-    setSearchResult({
-      address: queryText,
-      district: 'R2A (Residencial / Comercial Mixto)',
-      landArea: '280 m²',
-      maxHeight: '12 metros (Planta baja + 3 pisos)',
-      viabilityStatus: 'Apto Comercial',
-      activity: 'Comercio minorista y gastronomía sin molestas',
-      observaciones: 'Zonificación compatible según parámetros preliminares del Código Urbanístico de la Ciudad.'
-    });
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPasoActual('requisitos'); // Al buscar, pasa a la vista de requisitos
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900">
-      {/* 1. Barra de Navegación Institucional */}
+    <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-800">
+      {/* 1. Navbar oficial */}
       <Navbar />
 
-      {/* 2. Contenedor Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
-        {/* Módulo de Búsqueda y Consulta */}
-        <SearchBox onSearch={handleSearch} />
+      {/* 2. Contenido Principal Dinámico */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 flex flex-col items-center">
+        {pasoActual === 'home' && (
+          /* --- VISTA 1: HOME COMPLETO --- */
+          <>
+            {/* Título y Subtítulo */}
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2 text-center">
+              Sistema de Gestión Inteligente
+            </h1>
+            <p className="text-slate-600 mb-8 text-center text-sm md:text-base">
+              Los trámites que necesitas para realizar tu actividad, en un solo lugar.
+            </p>
 
-        {/* Grilla Principal de Trabajo (Mapa + Resultados) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Columna Izquierda: Visor Cartográfico (Leaflet) */}
-          <div className="lg:col-span-7 flex flex-col">
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-gcba-dark flex items-center gap-2">
-                  <span>📍</span> Visor Geográfico Urbano
-                </h3>
-                <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                  OpenStreetMap / Leaflet
-                </span>
+            {/* Buscador Central */}
+            <form onSubmit={handleSearch} className="w-full max-w-2xl bg-white p-2 rounded-xl shadow-md flex items-center mb-12">
+              <span className="pl-3 text-slate-400">🔍</span>
+              <input 
+                type="text" 
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación..."
+                className="w-full px-3 py-2 outline-none text-slate-700 text-sm md:text-base"
+              />
+              <button 
+                type="submit" 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors text-sm md:text-base"
+              >
+                Buscar
+              </button>
+            </form>
+
+            {/* Tarjetas Destacadas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-16">
+              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
+                <div className="h-40 w-full relative bg-slate-200 overflow-hidden">
+                  <img src="" alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-slate-800 text-lg mb-1">¿Quéres abrir tu negocio?</h3>
+                  <p className="text-slate-500 text-sm">Conocé los pasos.</p>
+                </div>
               </div>
-              <div className="flex-1 min-h-[400px]">
-                <MapView />
+
+              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
+                <div className="h-40 w-full relative bg-slate-200 overflow-hidden">
+                  <img src="" alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-slate-800 text-lg mb-1">Gestioná tu habilitación</h3>
+                  <p className="text-slate-500 text-sm">Consultá el estado de tus trámites.</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Columna Derecha: Panel de Resultados y Viabilidad */}
-          <div className="lg:col-span-5 flex flex-col">
-            <ResultPanel data={searchResult} />
-          </div>
-        </div>
+            {/* Sección: ¿Cómo funciona? */}
+            <section className="w-full mb-16">
+              <h2 className="text-xl font-bold text-slate-800 mb-8">¿Cómo funciona?</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">1</span>
+                    <h4 className="font-bold text-slate-800">Contanos que queres hacer</h4>
+                  </div>
+                  <p className="text-slate-500 text-sm pl-10">Escribí la actividad que quieras realizar.</p>
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">2</span>
+                    <h4 className="font-bold text-slate-800">Indicá dónde</h4>
+                  </div>
+                  <p className="text-slate-500 text-sm pl-10">Seleccioná una dirección o zona.</p>
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">3</span>
+                    <h4 className="font-bold text-slate-800">Te mostramos que necesitas</h4>
+                  </div>
+                  <p className="text-slate-500 text-sm pl-10">Trámites, requisitos, documentación y pasos.</p>
+                </div>
+              </div>
+            </section>
+
+            {/* Sección: Gestiones frecuentes */}
+            <section className="w-full mb-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-6">Gestiones frecuentes</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                  <span className="text-2xl mb-2">📄</span>
+                  <span className="text-sm font-medium text-slate-700">Habilitar un comercio.</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                  <span className="text-2xl mb-2">🏠</span>
+                  <span className="text-sm font-medium text-slate-700">Iniciar una actividad desde casa.</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                  <span className="text-2xl mb-2">🏗️</span>
+                  <span className="text-sm font-medium text-slate-700">Realizar una obra.</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                  <span className="text-2xl mb-2">⋯</span>
+                  <span className="text-sm font-medium text-slate-700">Otras gestiones.</span>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {pasoActual === 'requisitos' && (
+          /* --- VISTA 2: REQUISITOS --- */
+          <ConfirmacionView 
+            direccionBusqueda={busqueda} 
+            onBack={() => setPasoActual('home')} 
+            onVerTramites={() => setPasoActual('tramites')} 
+          />
+        )}
+
+        {pasoActual === 'tramites' && (
+          /* --- VISTA 3: LOS 4 PASOS DE TRÁMITES --- */
+          <TramitesView 
+            direccionBusqueda={busqueda} 
+            onBackToConfirmacion={() => setPasoActual('requisitos')} 
+          />
+        )}
       </main>
 
-      {/* 3. Pie de Página Institucional */}
+      {/* 3. Footer */}
       <Footer />
     </div>
   );
