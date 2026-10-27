@@ -4,7 +4,13 @@ Pipeline de datos para integrar, limpiar y analizar habilitaciones comerciales d
 
 ## Inicio rápido
 
-Desde `data_analytics/innovalab`:
+Desde la raíz del repositorio `sgi-tecba`, entra al proyecto de Analytics:
+
+```bash
+cd data_analytics/innovalab
+```
+
+Luego ejecuta desde `data_analytics/innovalab`:
 
 ```bash
 python -m venv .venv
@@ -35,7 +41,18 @@ python -m pytest tests/ -v
 
 ## Datos y resultados
 
-El padrón procesado contiene **216.991 registros y 20 columnas**. Los archivos de origen y los CSV procesados no se versionan en este repositorio; el pipeline los genera a partir de los datos disponibles localmente.
+El padrón procesado contiene **216.991 registros y 20 columnas**. Los CSV de origen y procesados, las capas geográficas y `db/innovalab_dump.sql` se almacenan con **Git LFS** para mantener liviano el historial normal de Git. Instala Git LFS antes de clonar o ejecuta `git lfs install` y `git lfs pull` después de clonar para descargar los archivos grandes.
+
+Estructura local necesaria:
+
+```text
+data/
+├── raw/        # CSV originales de habilitaciones y codigo-urbanistico.csv
+├── processed/  # habilitaciones_caba_clean.csv y codigo_urbanistico_limpio.csv
+└── geo/        # callejero.csv, comunas.geojson y manzanas_catastrales.csv
+```
+
+El padrón `data/processed/habilitaciones_caba_clean.csv` también puede generarse ejecutando el notebook 01.
 
 - Comuna asignada al **91,8%** de los registros; el 8,2% restante no tiene información suficiente para georreferenciarse.
 - **79,7%** de los registros tiene una clave catastral `smp` utilizable.
@@ -108,6 +125,8 @@ python -m pytest tests/ -v
 ```
 
 La suite verifica contratos de datos, estadísticas, oportunidad y clientes de APIs. Ejecuta las pruebas desde `data_analytics/innovalab`.
+
+Las pruebas de contrato en `tests/test_data.py` validan `data/processed/habilitaciones_caba_clean.csv`. Si el archivo no existe, pytest las marca como omitidas; una suite sin omisiones de contrato requiere que el CSV esté disponible localmente.
 
 ## Limitaciones
 
