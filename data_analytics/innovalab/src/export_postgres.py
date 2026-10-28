@@ -31,10 +31,7 @@ import psycopg
 
 RAIZ = Path(__file__).resolve().parent.parent
 CSV_SEED = RAIZ / "db" / "seed" / "rubros_requisitos.csv"
-CSV_HAB = RAIZ.parent.parent / "innovalab" / "data" / "processed" / "habilitaciones_caba_clean.csv"
-# Ruta alternativa por si el CSV vive junto al script (carpeta local innovalab).
-if not CSV_HAB.exists():
-    CSV_HAB = Path.home() / "OneDrive" / "Escritorio" / "innovalab" / "data" / "processed" / "habilitaciones_caba_clean.csv"
+CSV_HAB = RAIZ / "data" / "processed" / "habilitaciones_caba_clean.csv"
 
 # --- rubros_requisitos -------------------------------------------------------
 COLUMNAS = ("rubro", "tramite", "etapa", "orden", "obligatorio", "aplica_cuando",
