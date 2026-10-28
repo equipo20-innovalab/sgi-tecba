@@ -132,6 +132,11 @@ def limpiar(df: pd.DataFrame) -> pd.DataFrame:
         df["fecha_habilitacion"] = pd.to_datetime(
             df["fecha_habilitacion"], errors="coerce"
         )
+    else:
+        df["fecha_habilitacion"] = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+    df["fecha_fuente"] = np.where(
+        df["fecha_habilitacion"].notna(), "archivo", "sin_dato"
+    )
     for col in ("solicitud", "comuna"):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
@@ -157,5 +162,11 @@ def limpiar(df: pd.DataFrame) -> pd.DataFrame:
             | ~p.str.match(r"^\d+[A-Z]?$", na=False)
         )
         df["smp"] = (seccion_txt + "-" + m + "-" + p).mask(invalida)
+    else:
+        df["smp"] = pd.Series(pd.NA, index=df.index, dtype="string")
+
+    df["smp_fuente"] = np.where(
+        df["smp"].notna(), "seccion_manzana_parcela", "sin_dato"
+    )
 
     return df.reset_index(drop=True)

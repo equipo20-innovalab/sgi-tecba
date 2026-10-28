@@ -28,6 +28,28 @@ from .cleaning import _corregir_mojibake
 # Pesos por defecto del índice de oportunidad.
 PESOS_DEFECTO = {"crecimiento": 0.40, "baja_saturacion": 0.40, "subrepresentacion": 0.20}
 
+# Componentes que forman la nota (en el orden en que se documentan).
+COMPONENTES = ("crecimiento", "baja_saturacion", "subrepresentacion")
+
+# Versión de la fórmula. Se incrementa cuando cambian pesos, normalizaciones o
+# la definición de algún componente. El changelog narrativo vive en
+# docs/indice_oportunidad_formula.md y el legible por máquina en VERSIONES_FORMULA.
+VERSION_FORMULA = "1.0.0"
+
+VERSIONES_FORMULA: list[dict] = [
+    {
+        "version": "1.0.0",
+        "fecha": "2026-10-28",
+        "cambios": [
+            "Primera versión versionada y persistida del índice.",
+            "Pesos 40/40/20 sobre crecimiento, baja saturación y subrepresentación.",
+            "El crecimiento se mide sobre la cuota del rubro en la comuna (no sobre el conteo crudo).",
+            "Se agregan artefacto reproducible (CSV + metadatos), tabla consultable y backtest mínimo.",
+        ],
+        "pesos": PESOS_DEFECTO,
+    }
+]
+
 # Columnas de features usadas por el clustering de comunas.
 FEATURES_COMUNA = [
     "n_licencias",
@@ -36,6 +58,19 @@ FEATURES_COMUNA = [
     "tasa_nuevas",
     "diversidad_top10",
 ]
+
+
+def _normalizar_pesos(pesos: dict[str, float] | None = None) -> pd.Series:
+    """Completa y normaliza los pesos para que sumen 1.
+
+    Es la única fuente de verdad de los pesos efectivos: la usan tanto el
+    cálculo del índice como el artefacto persistido y la explicación.
+    """
+    combinados = {**PESOS_DEFECTO, **(pesos or {})}
+    serie = pd.Series(combinados, dtype=float)
+    if serie.sum() <= 0:
+        raise ValueError("Los pesos deben sumar un valor positivo.")
+    return serie / serie.sum()
 
 
 def _min_max(serie: pd.Series) -> pd.Series:
@@ -183,8 +218,7 @@ def indice_oportunidad(
     cualquiera y el resto se ajusta automáticamente.
     """
     pesos = {**PESOS_DEFECTO, **(pesos or {})}
-    normalizados = pd.Series(pesos, dtype=float)
-    normalizados = normalizados / normalizados.sum()
+    normalizados = _normalizar_pesos(pesos)
 
     componentes = pd.DataFrame(index=tabla.index)
     componentes["crecimiento"] = _min_max(tabla["crecimiento"])
@@ -315,3 +349,346 @@ def recomendar(
     ]
     columnas = [c for c in columnas if c in salida.columns]
     return salida.sort_values("oportunidad", ascending=False).head(top_n)[columnas]
+
+
+# ---------------------------------------------------------------------------
+# Artefacto reproducible, explicable y backtest
+# ---------------------------------------------------------------------------
+
+# Orden estable de columnas del artefacto (CSV y tabla Postgres).
+COLUMNAS_ARTEFACTO = (
+    "comuna",
+    "rubro",
+    "oportunidad",
+    "componente_crecimiento",
+    "componente_baja_saturacion",
+    "componente_subrepresentacion",
+    "peso_crecimiento",
+    "peso_baja_saturacion",
+    "peso_subrepresentacion",
+    "aporte_crecimiento",
+    "aporte_baja_saturacion",
+    "aporte_subrepresentacion",
+    "crecimiento",
+    "saturacion",
+    "subrepresentacion",
+    "n_licencias",
+    "n_nuevas",
+    "superficie_promedio",
+    "anio_ref",
+    "formula_version",
+    "calculado_en",
+    "explicacion",
+)
+
+
+def construir_artefacto_oportunidad(
+    df: pd.DataFrame,
+    *,
+    pesos: dict[str, float] | None = None,
+    anio_ref: int | None = None,
+    min_licencias: int = 5,
+    top_rubros: int | None = None,
+    calculado_en: object | None = None,
+    version: str = VERSION_FORMULA,
+) -> pd.DataFrame:
+    """Calcula el índice y devuelve una tabla plana lista para persistir.
+
+    A diferencia de ``indice_oportunidad`` (que devuelve un DataFrame con
+    índice ``(comuna, rubro)`` pensado para explorar), esta función produce
+    **una fila por combinación** con todo lo necesario para auditar el score:
+
+    * la nota y sus tres componentes (0-100),
+    * los pesos efectivos normalizados y el aporte de cada componente,
+    * las métricas crudas (crecimiento, saturación, subrepresentación),
+    * ``n_licencias``, ``n_nuevas``, ``superficie_promedio`` y ``anio_ref``,
+    * ``formula_version``, ``calculado_en`` y una ``explicacion`` textual.
+
+    Es determinista para los mismos datos, pesos y ``calculado_en``.
+    """
+    if df is None or len(df) == 0:
+        raise ValueError("El DataFrame de entrada está vacío.")
+
+    if anio_ref is None and "anio" in df.columns:
+        # Último año con masa crítica (>=100 filas). Evita tomar años con 1-2
+        # registros (p. ej. 2026) como referencia del cálculo. Si no hubiera
+        # ningún año con masa crítica, se usa el máximo disponible.
+        conteo = pd.to_numeric(df["anio"], errors="coerce").dropna()
+        conteo = conteo.astype(int).value_counts().sort_index()
+        suficientes = conteo[conteo >= 100]
+        if len(suficientes):
+            anio_ref = int(suficientes.index.max())
+        elif len(conteo):
+            anio_ref = int(conteo.index.max())
+
+    tabla = preparar_features_comuna_rubro(
+        df,
+        anio_ref=anio_ref,
+        min_licencias=min_licencias,
+        top_rubros=top_rubros,
+    )
+    if len(tabla) == 0:
+        raise ValueError(
+            "El índice quedó vacío: probá con un min_licencias más bajo o "
+            "con más datos de entrada."
+        )
+
+    opp = indice_oportunidad(tabla, pesos=pesos)
+    normalizados = _normalizar_pesos(pesos)
+
+    if calculado_en is None:
+        calculado_en = pd.Timestamp.now(tz="UTC")
+    else:
+        calculado_en = pd.Timestamp(calculado_en)
+        if calculado_en.tzinfo is None:
+            calculado_en = calculado_en.tz_localize("UTC")
+
+    indice = opp.index
+    artefacto = pd.DataFrame(
+        {
+            "comuna": indice.get_level_values("comuna").astype(int),
+            "rubro": indice.get_level_values("rubro").astype(str),
+            "oportunidad": opp["oportunidad"].to_numpy(),
+            "componente_crecimiento": opp["componente_crecimiento"].to_numpy(),
+            "componente_baja_saturacion": opp["componente_baja_saturacion"].to_numpy(),
+            "componente_subrepresentacion": opp["componente_subrepresentacion"].to_numpy(),
+            "peso_crecimiento": float(normalizados["crecimiento"]),
+            "peso_baja_saturacion": float(normalizados["baja_saturacion"]),
+            "peso_subrepresentacion": float(normalizados["subrepresentacion"]),
+            "crecimiento": opp["crecimiento"].to_numpy(),
+            "saturacion": opp["saturacion"].to_numpy(),
+            "subrepresentacion": opp["subrepresentacion"].to_numpy(),
+            "n_licencias": opp["n_licencias"].astype(int).to_numpy(),
+            "n_nuevas": opp["n_nuevas"].fillna(0).astype(int).to_numpy(),
+            "superficie_promedio": opp["superficie_promedio"].to_numpy(),
+            "anio_ref": anio_ref,
+            "formula_version": version,
+            "calculado_en": calculado_en,
+        }
+    )
+
+    for componente in COMPONENTES:
+        artefacto[f"aporte_{componente}"] = (
+            artefacto[f"componente_{componente}"]
+            * float(normalizados[componente])
+        ).round(2)
+
+    artefacto["explicacion"] = artefacto.apply(
+        lambda fila: explicar_oportunidad(fila)["resumen"], axis=1
+    )
+
+    return artefacto.loc[:, list(COLUMNAS_ARTEFACTO)].sort_values(
+        ["comuna", "rubro"], ignore_index=True
+    )
+
+
+def explicar_oportunidad(fila: pd.Series | dict) -> dict:
+    """Desglosa por qué una combinación (comuna, rubro) obtuvo su nota.
+
+    Devuelve los aportes de cada componente, la suma de aportes y un texto
+    legible. La suma puede diferir en ±0,1 de ``oportunidad`` por redondeo:
+    ese residuo se informa en ``diferencia_redondeo``.
+    """
+    oportunidad = float(fila["oportunidad"])
+    aportes = {
+        componente: round(
+            float(fila[f"componente_{componente}"]) * float(fila[f"peso_{componente}"]),
+            2,
+        )
+        for componente in COMPONENTES
+    }
+    suma = round(sum(aportes.values()), 2)
+    pesos = {componente: float(fila[f"peso_{componente}"]) for componente in COMPONENTES}
+
+    detalle = " + ".join(
+        f"{componente} {float(fila[f'componente_{componente}']):.1f}×{pesos[componente]:.2f} ({aportes[componente]:.1f})"
+        for componente in COMPONENTES
+    )
+    resumen = (
+        f"Oportunidad {oportunidad:.1f} = {detalle} · "
+        f"n_licencias={int(fila['n_licencias'])} · fórmula {fila['formula_version']}"
+    )
+
+    return {
+        "oportunidad": oportunidad,
+        "formula_version": str(fila["formula_version"]),
+        "pesos": pesos,
+        "componentes": {
+            componente: float(fila[f"componente_{componente}"])
+            for componente in COMPONENTES
+        },
+        "aportes": aportes,
+        "suma_aportes": suma,
+        "diferencia_redondeo": round(oportunidad - suma, 2),
+        "n_licencias": int(fila["n_licencias"]),
+        "resumen": resumen,
+    }
+
+
+def metadatos_artefacto(
+    artefacto: pd.DataFrame,
+    *,
+    fuente: str | None = None,
+    fuente_sha256: str | None = None,
+    parametros: dict | None = None,
+    notas: str | None = None,
+) -> dict:
+    """Metadatos de la corrida que acompañan al CSV del índice.
+
+    Incluye versión de fórmula, fecha de cálculo, pesos efectivos, parámetros
+    y huella del archivo de origen para poder reproducir el artefacto.
+    """
+    if artefacto is None or len(artefacto) == 0:
+        raise ValueError("No se pueden generar metadatos de un artefacto vacío.")
+
+    calculado_en = pd.Timestamp(artefacto["calculado_en"].iloc[0])
+    return {
+        "formula_version": str(artefacto["formula_version"].iloc[0]),
+        "calculado_en": calculado_en.isoformat(),
+        "pesos": {
+            "crecimiento": float(artefacto["peso_crecimiento"].iloc[0]),
+            "baja_saturacion": float(artefacto["peso_baja_saturacion"].iloc[0]),
+            "subrepresentacion": float(artefacto["peso_subrepresentacion"].iloc[0]),
+        },
+        "parametros": parametros or {},
+        "n_filas": int(len(artefacto)),
+        "n_comunas": int(artefacto["comuna"].nunique()),
+        "n_rubros": int(artefacto["rubro"].nunique()),
+        "anio_ref": int(artefacto["anio_ref"].iloc[0]),
+        "fuente": fuente,
+        "fuente_sha256": fuente_sha256,
+        "notas": notas,
+    }
+
+
+def _anios_elegibles(base: pd.DataFrame, min_registros: int) -> list[int]:
+    """Años con al menos ``min_registros`` filas, de menor a mayor."""
+    conteo = base.groupby("anio").size()
+    return [int(anio) for anio, n in conteo.items() if int(n) >= min_registros]
+
+
+def backtest_oportunidad(
+    df: pd.DataFrame,
+    *,
+    anio_corte: int | None = None,
+    anio_evaluacion: int | None = None,
+    pesos: dict[str, float] | None = None,
+    min_licencias: int = 5,
+    top_rubros: int | None = None,
+    top_k: int = 10,
+    min_registros_anio: int = 100,
+) -> dict:
+    """Backtest mínimo: entrena el índice con datos hasta un año y lo contrasta
+    contra el crecimiento realizado en el año siguiente.
+
+    Evita fuga de información: el artefacto se calcula **solo** con filas
+    ``anio <= anio_corte``. El contraste usa el cambio de cuota del rubro
+    dentro de su comuna (la misma métrica que alimenta el componente de
+    crecimiento), entre ``anio_corte`` y ``anio_evaluacion``.
+
+    Devuelve un dict con la correlación de rangos (Spearman) y la tasa de
+    acierto del top-k. Un valor cercano a 0 indica que el índice no anticipa
+    el crecimiento relativo; no debe leerse como validación causal.
+    """
+    base = df.copy()
+    if "descripcion_rubro" not in base.columns:
+        raise ValueError("El DataFrame debe incluir 'descripcion_rubro'.")
+    base["rubro"] = base["descripcion_rubro"].map(_corregir_mojibake)
+    base = base.dropna(subset=["comuna", "rubro", "anio"])
+    base["comuna"] = base["comuna"].astype(int)
+    base["anio"] = base["anio"].astype(int)
+
+    elegibles = _anios_elegibles(base, min_registros_anio)
+    if len(elegibles) < 2:
+        raise ValueError(
+            "Se necesitan al menos dos años con datos suficientes para hacer "
+            "el backtest."
+        )
+
+    if anio_evaluacion is None:
+        anio_evaluacion = elegibles[-1]
+    if anio_corte is None:
+        previos = [anio for anio in elegibles if anio < anio_evaluacion]
+        if not previos:
+            raise ValueError(
+                f"No hay un año anterior a {anio_evaluacion} con datos suficientes."
+            )
+        anio_corte = previos[-1]
+
+    if anio_corte >= anio_evaluacion:
+        raise ValueError("anio_corte debe ser menor que anio_evaluacion.")
+
+    train = base[base["anio"] <= anio_corte]
+    artefacto = construir_artefacto_oportunidad(
+        train,
+        pesos=pesos,
+        min_licencias=min_licencias,
+        top_rubros=top_rubros,
+    )
+
+    ventana = base[base["anio"].isin([anio_corte, anio_evaluacion])]
+    conteos = ventana.groupby(["comuna", "rubro", "anio"]).size().rename("n").reset_index()
+    totales = ventana.groupby(["comuna", "anio"]).size().rename("total").reset_index()
+    conteos = conteos.merge(totales, on=["comuna", "anio"], how="left")
+    conteos["cuota"] = conteos["n"] / conteos["total"].replace(0, np.nan)
+    pivote = conteos.pivot_table(
+        index=["comuna", "rubro"], columns="anio", values="cuota"
+    )
+
+    resultado = {
+        "formula_version": VERSION_FORMULA,
+        "anio_corte": int(anio_corte),
+        "anio_evaluacion": int(anio_evaluacion),
+        "n_entrenamiento": int(len(train)),
+        "n_comparables": 0,
+        "spearman": None,
+        "top_k": int(top_k),
+        "top_k_hit_rate": None,
+        "pesos": _normalizar_pesos(pesos).round(4).to_dict(),
+        "min_licencias": int(min_licencias),
+        "top_rubros": top_rubros,
+        "notas": (
+            "Backtest descriptivo de una sola ventana; no es validación causal. "
+            "La cobertura del padrón varía fuerte entre años, por eso se usa "
+            "cuota (share) y no conteo crudo."
+        ),
+    }
+
+    if anio_corte not in pivote.columns or anio_evaluacion not in pivote.columns:
+        return resultado
+
+    cuota_inicial = pivote[anio_corte]
+    cuota_final = pivote[anio_evaluacion]
+    anios_ventana = max(1, int(anio_evaluacion) - int(anio_corte))
+    realizado = (
+        (cuota_final / cuota_inicial.replace(0, np.nan)) ** (1.0 / anios_ventana) - 1.0
+    ).rename("crecimiento_realizado")
+
+    comparables = (
+        artefacto.set_index(["comuna", "rubro"])["oportunidad"]
+        .to_frame()
+        .join(realizado, how="inner")
+        .dropna()
+    )
+    resultado["n_comparables"] = int(len(comparables))
+    if len(comparables) < 2:
+        return resultado
+
+    if (
+        comparables["oportunidad"].nunique() > 1
+        and comparables["crecimiento_realizado"].nunique() > 1
+    ):
+        correlacion = comparables["oportunidad"].rank().corr(
+            comparables["crecimiento_realizado"].rank()
+        )
+        if pd.notna(correlacion):
+            resultado["spearman"] = round(float(correlacion), 3)
+
+    k = min(int(top_k), len(comparables))
+    if k > 0:
+        top_predicho = set(comparables["oportunidad"].nlargest(k).index)
+        top_real = set(comparables["crecimiento_realizado"].nlargest(k).index)
+        resultado["top_k"] = k
+        resultado["top_k_hit_rate"] = round(len(top_predicho & top_real) / k, 3)
+
+    return resultado

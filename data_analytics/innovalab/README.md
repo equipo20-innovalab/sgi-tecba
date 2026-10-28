@@ -82,6 +82,28 @@ El notebook 04 procesa `data/raw/codigo-urbanistico.csv` y genera `data/processe
 
 Las columnas `dist_*` pueden tener nulos estructurales. La matriz de permisos que aparece en la demostración es simulada y no debe usarse para determinar si un rubro está permitido.
 
+## Índice de oportunidad (artefacto consultable)
+
+El índice que calculan el notebook 03 y `src/oportunidad.py` ya no queda solo en memoria. `--oportunidad` genera un artefacto reproducible y lo carga en PostgreSQL:
+
+```bash
+python src/export_postgres.py --oportunidad --min-licencias 5 --top-rubros 80
+```
+
+- `data/processed/indice_oportunidad.csv` y `indice_oportunidad_meta.json`: score, componentes, pesos, aportes, `n_licencias`, `formula_version`, `calculado_en`, explicación por fila y SHA-256 del CSV de origen.
+- `indice_oportunidad_meta`: una fila por corrida (versión, fecha, pesos, parámetros, huella).
+- `indice_oportunidad`: historial de scores por `calculo_id`.
+- `indice_oportunidad_actual`: vista con la última corrida, pensada para consultas.
+
+```sql
+SELECT comuna, rubro, oportunidad, n_licencias, explicacion
+FROM indice_oportunidad_actual
+ORDER BY oportunidad DESC
+LIMIT 10;
+```
+
+La fórmula, la normalización, el changelog de versiones y el backtest mínimo están documentados en [`docs/indice_oportunidad_formula.md`](docs/indice_oportunidad_formula.md). El backtest entrena solo con datos hasta `anio_corte` y contrasta contra el crecimiento realizado del año siguiente (Spearman + top-k hit rate); es descriptivo, no una validación causal.
+
 ## APIs y datos catastrales
 
 `src/apis_gcba.py` incluye clientes para:
@@ -145,3 +167,5 @@ Las pruebas de contrato en `tests/test_data.py` validan `data/processed/habilita
 - La cobertura geográfica depende de la calidad de direcciones y claves del padrón original.
 - La superficie del padrón puede ser cero o faltar; EPOK aporta datos catastrales cuando la SMP se resuelve.
 - Los estados del Código Urbanístico en la demostración y la etiqueta de fecha de habilitación no equivalen a permisos ni a resultados de rechazo.
+- `descripcion_rubro` falta en 2020, 2021, 2023 y 2024 (esos archivos solo traen `codigo_rubro`). El índice de oportunidad, por lo tanto, se calcula con los años que sí tienen rubro descrito (2015, 2019, 2025 y 2026).
+- El backtest mínimo del índice (corte 2019 → evaluación 2025) da Spearman −0,178 y top-10 hit rate 0,0: el score es orientativo y no debe presentarse como pronóstico.

@@ -31,6 +31,8 @@ COLUMNAS_ESPERADAS = {
     "origen",
     "anio",
     "smp",
+    "smp_fuente",
+    "fecha_fuente",
     "comuna_fuente",
 }
 
@@ -51,6 +53,8 @@ NULOS_MAX_PCT = {
     "calles": 5.0,
     "origen": 0.0,
     "anio": 0.0,
+    "smp_fuente": 0.0,
+    "fecha_fuente": 0.0,
     "comuna_fuente": 0.0,
 }
 
@@ -85,6 +89,20 @@ def test_comuna_fuente_valida(df):
     assert df["comuna_fuente"].notna().any(), "comuna_fuente sin valores"
     invalidas = set(df["comuna_fuente"].dropna().unique()) - COMUNAS_FUENTE_VALIDAS
     assert not invalidas, f"comuna_fuente inválida: {sorted(invalidas)}"
+
+
+def test_smp_fuente_valida(df):
+    fuentes_validas = {"seccion_manzana_parcela", "sin_dato"}
+    assert df["smp_fuente"].notna().all(), "smp_fuente tiene nulos"
+    invalidas = set(df["smp_fuente"].unique()) - fuentes_validas
+    assert not invalidas, f"smp_fuente inválida: {sorted(invalidas)}"
+
+
+def test_fecha_fuente_consistente(df):
+    assert df["fecha_fuente"].notna().all(), "fecha_fuente tiene nulos"
+    con_fecha = df["fecha_habilitacion"].notna()
+    assert df.loc[con_fecha, "fecha_fuente"].eq("archivo").all()
+    assert df.loc[~con_fecha, "fecha_fuente"].eq("sin_dato").all()
 
 
 def test_anio_en_rango(df):

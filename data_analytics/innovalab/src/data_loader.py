@@ -19,12 +19,15 @@ RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 GEO_DIR = PROJECT_ROOT / "data" / "geo"
 
-# Exportación manual "Solicitud;All" (20 filas, sin estructura tabular): se excluye.
-ARCHIVOS_EXCLUIDOS = {"habilitaciones-aprobadas2022.csv"}
+# Estos archivos se procesan por separado o no tienen estructura tabular.
+ARCHIVOS_EXCLUIDOS = {
+    "codigo-urbanistico.csv",
+    "habilitaciones-aprobadas2022.csv",
+}
 
 
 def listar_archivos_raw() -> list[Path]:
-    """CSV de data/raw/ en orden de carga, excluyendo los no tabulares."""
+    """CSV de habilitaciones en orden de carga, sin fuentes procesadas aparte."""
     return [
         ruta
         for ruta in sorted(RAW_DIR.glob("*.csv"))
@@ -72,7 +75,7 @@ def load_raw() -> pd.DataFrame:
         print(f"OK  {ruta.name:<40} {df.shape[0]:>7} filas x {df.shape[1]:>3} columnas")
 
     if excluidos:
-        print(f"Excluidos (sin estructura tabular): {', '.join(excluidos)}")
+        print(f"Excluidos de habilitaciones (flujo separado o formato no tabular): {', '.join(excluidos)}")
 
     df = pd.concat(partes, ignore_index=True, sort=False)
     print(f"Total crudo: {df.shape[0]} filas x {df.shape[1]} columnas")
