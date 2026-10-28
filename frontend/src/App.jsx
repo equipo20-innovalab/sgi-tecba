@@ -24,8 +24,8 @@ export default function App() {
       {/* 1. Navbar oficial */}
       <Navbar />
 
-      {/* 2. Contenido Principal Dinámico */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 flex flex-col items-center">
+      {/* 2. Contenido Principal Dinámico - Expandido al 100% de ancho */}
+      <main className="flex-1 w-full px-4 md:px-12 py-10 flex flex-col items-center">
         {pasoActual === 'home' && (
           /* --- VISTA 1: HOME COMPLETO --- */
           <>
@@ -38,48 +38,40 @@ export default function App() {
             </p>
 
             {/* Buscador Central */}
-            <form onSubmit={handleSearch} className="w-full max-w-2xl bg-white p-2 rounded-xl shadow-md flex items-center mb-12">
+            <form onSubmit={handleSearch} className="w-full max-w-3xl bg-white p-2 rounded-xl shadow-md flex items-center mb-12 border border-slate-200">
               <span className="pl-3 text-slate-400">🔍</span>
               <input 
                 type="text" 
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación..."
-                className="w-full px-3 py-2 outline-none text-slate-700 text-sm md:text-base"
+                className="w-full px-3 py-2 outline-none bg-transparent text-slate-700 text-sm md:text-base"
               />
               <button 
                 type="submit" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors text-sm md:text-base"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors text-sm md:text-base shrink-0"
               >
                 Buscar
               </button>
             </form>
 
-            {/* Tarjetas Destacadas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-16">
-              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
-                <div className="h-40 w-full relative bg-slate-200 overflow-hidden">
-                  <img src="" alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="p-5">
-                  <h3 className="font-bold text-slate-800 text-lg mb-1">¿Quéres abrir tu negocio?</h3>
-                  <p className="text-slate-500 text-sm">Conocé los pasos.</p>
-                </div>
+            {/* Tarjetas Destacadas - Ocupando el ancho completo fluidamente */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-6xl mb-16">
+              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-6">
+                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-4 font-bold">🏢</div>
+                <h3 className="font-bold text-slate-800 text-lg mb-1">¿Quéres abrir tu negocio?</h3>
+                <p className="text-slate-500 text-sm">Conocé los pasos y requisitos necesarios para habilitar tu local.</p>
               </div>
 
-              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
-                <div className="h-40 w-full relative bg-slate-200 overflow-hidden">
-                  <img src="" alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="p-5">
-                  <h3 className="font-bold text-slate-800 text-lg mb-1">Gestioná tu habilitación</h3>
-                  <p className="text-slate-500 text-sm">Consultá el estado de tus trámites.</p>
-                </div>
+              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-6">
+                <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4 font-bold">📋</div>
+                <h3 className="font-bold text-slate-800 text-lg mb-1">Gestioná tu habilitación</h3>
+                <p className="text-slate-500 text-sm">Consultá el estado actual de tus trámites en curso.</p>
               </div>
             </div>
 
             {/* Sección: ¿Cómo funciona? */}
-            <section className="w-full mb-16">
+            <section className="w-full max-w-6xl mb-16">
               <h2 className="text-xl font-bold text-slate-800 mb-8">¿Cómo funciona?</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="flex flex-col">
@@ -107,7 +99,7 @@ export default function App() {
             </section>
 
             {/* Sección: Gestiones frecuentes */}
-            <section className="w-full mb-8">
+            <section className="w-full max-w-6xl mb-8">
               <h2 className="text-xl font-bold text-slate-800 mb-6">Gestiones frecuentes</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
@@ -132,7 +124,6 @@ export default function App() {
         )}
 
         {pasoActual === 'requisitos' && (
-          /* --- VISTA 2: REQUISITOS --- */
           <ConfirmacionView 
             direccionBusqueda={busqueda} 
             onBack={() => setPasoActual('home')} 
@@ -141,7 +132,6 @@ export default function App() {
         )}
 
         {pasoActual === 'tramites' && (
-          /* --- VISTA 3: LOS 4 PASOS DE TRÁMITES --- */
           <TramitesView 
             direccionBusqueda={busqueda} 
             onBackToConfirmacion={() => setPasoActual('requisitos')} 

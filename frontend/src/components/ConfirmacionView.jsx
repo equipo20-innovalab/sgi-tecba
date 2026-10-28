@@ -3,7 +3,7 @@ import MapView from './MapView';
 
 export default function ConfirmacionView({ direccionBusqueda, onBack, onVerTramites }) {
   return (
-    <div className="w-full">
+    <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-4">
       {/* Botón Volver */}
       <button 
         onClick={onBack}
