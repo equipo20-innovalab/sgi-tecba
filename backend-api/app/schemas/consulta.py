@@ -1,18 +1,21 @@
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional
+from app.schemas.urbanismo import Zonificacion
 
 
 class ConsultaRequest(BaseModel):
     # Modo 1: Lenguaje natural
-    texto: Optional[str] = Field(None, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'")
-    
-    # Modo 2: Estructurado 
+    texto: Optional[str] = Field(
+        None, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'"
+    )
+
+    # Modo 2: Estructurado
     rubro: Optional[str] = Field(None, description="Ej: 'Cafetería'")
     direccion: Optional[str] = Field(None, description="Ej: 'Av. Corrientes 2500'")
-    
+
     sesion_id: Optional[str] = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validar_inputs(self):
         if not self.texto and not (self.rubro and self.direccion):
             raise ValueError("Enviar 'texto' o la combinación de 'rubro' y 'direccion'")
@@ -26,6 +29,10 @@ class Ubicacion(BaseModel):
     lng: Optional[float] = None
     comuna: Optional[int] = None
     smp: Optional[str] = None
+    barrio: Optional[str] = None
+    calle: Optional[str] = None
+    altura: Optional[int] = None
+    candidatos: list[dict] = Field(default_factory=list)
 
 
 class RequisitoItem(BaseModel):
@@ -66,7 +73,7 @@ class ContextoTerritorial(BaseModel):
 
 class FuenteUsada(BaseModel):
     nombre: str
-    tipo: str          # "padron" | "catastro" | "curado"
+    tipo: str  # "padron" | "catastro" | "curado"
     url: Optional[str] = None
     fecha_actualizacion: Optional[str] = None
 
@@ -77,8 +84,18 @@ class ConsultaResponse(BaseModel):
     requisitos: list[RequisitoItem]
     competencia_cercana: list[CompetenciaItem]
     ficha_catastral: Optional[FichaCatastral]
+    zonificacion: Optional[Zonificacion] = None
     contexto_territorial: Optional[ContextoTerritorial]
     pasos_sugeridos: list[str]
-    respuesta_ia: Optional[str] = None      # TODO: Sprint 5-6
+    respuesta_ia: Optional[str] = None  # TODO: Sprint 5-6
     fuentes: list[FuenteUsada]
-    mensaje: Optional[str] = None           # aclaraciones si algo no se detectó
+    mensaje: Optional[str] = None  # aclaraciones si algo no se detectó
+    address: Optional[str] = None
+    district: Optional[str] = None
+    landArea: Optional[str] = None
+    coveredArea: Optional[str] = None
+    maxHeight: Optional[str] = None
+    viabilityStatus: Optional[str] = None
+    activity: Optional[str] = None
+    observaciones: Optional[str] = None
+    rawData: Optional[dict] = None  # Para que puedan acceder a los requisitos crudos

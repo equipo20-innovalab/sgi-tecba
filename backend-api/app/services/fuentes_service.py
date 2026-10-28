@@ -4,35 +4,55 @@ Servicios de recuperación de datos de las 3 fuentes:
 - EPOK (epok_fichas)
 - Checklist curado (rubros_requisitos)
 """
+
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from app.models.rubro_requisito import RubroRequisito
 from app.models.habilitacion import Habilitacion
 from app.models.epok_ficha import EpokFicha
 from app.schemas.consulta import (
-    RequisitoItem, CompetenciaItem, FichaCatastral, ContextoTerritorial,
+    RequisitoItem,
+    CompetenciaItem,
+    FichaCatastral,
+    ContextoTerritorial,
 )
+from app.services.text_utils import clave_rubro
 
 
 def obtener_requisitos(db: Session, actividad: str | None) -> list[RequisitoItem]:
     """Fuente 3: checklist curado de requisitos (General + rubro específico)."""
     if not actividad:
         return []
+
+    clave = clave_rubro(actividad)
+    rubros = [r[0] for r in db.query(RubroRequisito.rubro).distinct().all()]
+    canonico = next((r for r in rubros if clave_rubro(r) == clave), actividad)
+
     rows = (
         db.query(RubroRequisito)
-        .filter(RubroRequisito.rubro.in_(["General", actividad]))
+        .filter(RubroRequisito.rubro.in_(["General", canonico]))
         .order_by(RubroRequisito.etapa, RubroRequisito.orden)
         .all()
     )
     return [
         RequisitoItem(
-            etapa=r.etapa, orden=r.orden, tramite=r.tramite,
-            obligatorio=r.obligatorio, aplica_cuando=r.aplica_cuando,
+            etapa=r.etapa,
+            orden=r.orden,
+            tramite=r.tramite,
+            obligatorio=r.obligatorio,
+            aplica_cuando=r.aplica_cuando,
             documentacion_requerida=r.documentacion_requerida,
-            organismo=r.organismo, link_oficial=r.link_oficial,
+            organismo=r.organismo,
+            link_oficial=r.link_oficial,
         )
         for r in rows
     ]
+
+
+PATRONES_COMPETENCIA = {
+    "CAFETERIA": ["CAFE BAR", "CONFITERIA"],
+    "PIZZERIA": ["PIZZERIA"],
+}
 
 
 def obtener_competencia_cercana(
@@ -44,13 +64,23 @@ def obtener_competencia_cercana(
     """Fuente 1: padrón BA Data — competencia en la misma comuna."""
     if not actividad or not comuna:
         return []
+
+    clave = clave_rubro(actividad)
+    patrones = PATRONES_COMPETENCIA.get(clave, [clave])
+    filtros = [
+        func.unaccent(func.lower(Habilitacion.descripcion_rubro)).ilike(
+            func.unaccent(f"%{patron.lower()}%")
+        )
+        for patron in patrones
+        if patron
+    ]
+    if not filtros:
+        return []
+
     rows = (
         db.query(Habilitacion)
         .filter(Habilitacion.comuna == comuna)
-        .filter(
-            func.unaccent(func.lower(Habilitacion.descripcion_rubro))
-            .ilike(func.unaccent(f"%{actividad.lower()}%"))
-        )
+        .filter(or_(*filtros))
         .order_by(Habilitacion.anio.desc().nullslast())
         .limit(limit)
         .all()
@@ -75,12 +105,14 @@ def obtener_ficha_catastral(db: Session, smp: str | None) -> FichaCatastral | No
     if not f:
         return None
     return FichaCatastral(
-        smp=f.smp, direccion=f.direccion,
+        smp=f.smp,
+        direccion=f.direccion,
         superficie_total=f.superficie_total,
         superficie_cubierta=f.superficie_cubierta,
         pisos_sobre_rasante=f.pisos_sobre_rasante,
         unidades_funcionales=f.unidades_funcionales,
-        lat=f.lat, lng=f.lng,
+        lat=f.lat,
+        lng=f.lng,
     )
 
 

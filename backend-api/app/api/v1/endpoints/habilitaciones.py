@@ -7,13 +7,18 @@ from app.schemas.habilitacion import ConteoPorComuna, RubroConteo
 
 router = APIRouter()
 
+
 @router.get("/habilitaciones/por-comuna/{comuna}", response_model=ConteoPorComuna)
 def habilitaciones_por_comuna(comuna: int, db: Session = Depends(get_db)):
     """Cuenta habilitaciones totales en una comuna."""
     total = db.query(Habilitacion).filter(Habilitacion.comuna == comuna).count()
     return ConteoPorComuna(comuna=comuna, total_habilitaciones=total)
 
-@router.get("/habilitaciones/rubros-por-comuna/{comuna}", response_model=list[RubroConteo])
+
+@router.get(
+    "/habilitaciones/rubros-por-comuna/{comuna}",
+    response_model=list[RubroConteo],
+)
 def rubros_por_comuna(
     comuna: int,
     limit: int = Query(20, ge=1, le=100),
@@ -34,6 +39,7 @@ def rubros_por_comuna(
     )
     return [RubroConteo(rubro=r.rubro, total=r.total) for r in resultados]
 
+
 @router.get("/habilitaciones/buscar-cafeterias")
 def buscar_cafeterias(
     comuna: int | None = None,
@@ -41,11 +47,13 @@ def buscar_cafeterias(
     db: Session = Depends(get_db),
 ):
     """Busca cafeterías/pizzerías (insensible a acentos)."""
-    query = db.query(Habilitacion).filter(
-        text("unaccent(descripcion_rubro) ILIKE unaccent(:patron)")
-    ).params(patron="%cafeter%")
-    
+    query = (
+        db.query(Habilitacion)
+        .filter(text("unaccent(descripcion_rubro) ILIKE unaccent(:patron)"))
+        .params(patron="%cafeter%")
+    )
+
     if comuna:
         query = query.filter(Habilitacion.comuna == comuna)
-    
+
     return query.limit(limit).all()
