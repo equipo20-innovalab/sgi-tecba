@@ -18,11 +18,13 @@ source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Ejecuta el pipeline principal o abre el notebook en VS Code/Jupyter:
+Ejecuta el flujo reproducible de preparación y validación:
 
 ```bash
-jupyter nbconvert --to notebook --execute --inplace notebook/01_exploracion_y_limpieza.ipynb
+python -m src.run_pipeline --build-only
 ```
+
+Para construir, validar y actualizar PostgreSQL en un único comando, configura `DATABASE_URL` y ejecuta `python -m src.run_pipeline`. Los notebooks siguen disponibles para exploración, gráficos y modelado; no son necesarios para la carga programada.
 
 Para correr las pruebas:
 
@@ -41,7 +43,7 @@ python -m pytest tests/ -v
 
 ## Datos y resultados
 
-El padrón procesado contiene **216.991 registros y 20 columnas**. Los CSV de origen y procesados, las capas geográficas y `db/innovalab_dump.sql` se almacenan con **Git LFS** para mantener liviano el historial normal de Git. Instala Git LFS antes de clonar o ejecuta `git lfs install` y `git lfs pull` después de clonar para descargar los archivos grandes.
+El padrón procesado contiene **216.991 registros y 22 columnas**. Los CSV de origen y procesados, las capas geográficas y `db/innovalab_dump.sql` se almacenan con **Git LFS** para mantener liviano el historial normal de Git. Instala Git LFS antes de clonar o ejecuta `git lfs install` y `git lfs pull` después de clonar para descargar los archivos grandes.
 
 Estructura local necesaria:
 
@@ -99,13 +101,22 @@ python src/enriquecer_epok.py
 
 ## PostgreSQL
 
-Configura `DATABASE_URL` en el entorno; no guardes credenciales en el repositorio. Crea el esquema y carga las tablas disponibles con:
+Configura `DATABASE_URL` en el entorno; no guardes credenciales en el repositorio. Crea el esquema una vez y ejecuta el flujo completo:
 
 ```bash
 psql "$DATABASE_URL" -f db/schema.sql
-python src/export_postgres.py
-python src/export_postgres.py --habilitaciones
+python -m src.run_pipeline
 ```
+
+El comando único `python -m src.run_pipeline` reconstruye los CSV de habilitaciones y del Código Urbanístico desde `data/raw/`, asigna comunas al padrón, aplica los contratos de calidad y solo entonces carga las tres fuentes en PostgreSQL. `--build-only` prepara y valida sin base de datos; `--dry-run` valida también el formato de exportación sin escribir en PostgreSQL. Cada CSV procesado se reemplaza atómicamente después de superar sus validaciones. El reporte por columna queda en `data/processed/reporte_calidad.json`; las expectativas de comuna, SMP y fecha son 90%, 75% y 70%, respectivamente.
+
+El padrón registra `comuna_fuente`, `smp_fuente` y `fecha_fuente`. La API expone el resumen en `GET /api/v1/habilitaciones/cobertura` y lo incluye en las respuestas de consulta.
+
+El workflow `.github/workflows/analytics-refresh.yml` permite ejecución manual, corre cada lunes a las 09:17 UTC y se activa cuando cambian los datos fuente o el código del pipeline en `main`. Para habilitar la carga programada, configura `DATABASE_URL` como un secret del repositorio GitHub. El esquema debe estar creado previamente con `psql "$DATABASE_URL" -f db/schema.sql`; el job no guarda credenciales ni crea infraestructura de base de datos.
+
+El scheduler procesa las versiones de entrada almacenadas en Git (incluidos los archivos LFS); no consulta por sí solo si el GCBA publicó una versión nueva de los datasets. Para incorporar datos fuente nuevos hay que actualizar los archivos versionados; ese cambio dispara una nueva carga.
+
+El exportador resuelve `data/processed/habilitaciones_caba_clean.csv` desde la raíz de este proyecto; `codigo_urbanistico_limpio.csv` se lee desde el mismo directorio. No requiere rutas locales específicas de una computadora.
 
 El CSV `db/seed/rubros_requisitos.csv` contiene un checklist curado para requisitos generales y de cafetería. Se consulta por rubro junto con los requisitos `General`:
 
