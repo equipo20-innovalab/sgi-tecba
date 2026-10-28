@@ -3,7 +3,7 @@ import MapView from './MapView';
 
 export default function TramitesView({ direccionBusqueda, onBackToConfirmacion }) {
   return (
-    <div className="w-full">
+    <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-4">
       <button 
         onClick={onBackToConfirmacion}
         className="mb-6 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
