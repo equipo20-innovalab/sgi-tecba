@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from src.urbanismo import clasificar_smp, normalizar_smp
+
 COLUMNAS_ESPERADAS = {
     "solicitud",
     "tipo_tramite",
@@ -186,24 +188,57 @@ def guardar_reporte_calidad(df: pd.DataFrame, destino: Path) -> dict:
     return reporte
 
 
-def validar_codigo_urbanistico(ruta: Path) -> int:
-    """Verifica que el CSV catastral tenga una clave SMP completa y única."""
+def validar_codigo_urbanistico(ruta: Path, max_placeholder: float = 0.01) -> int:
+    """Verifica que el CSV catastral tenga una clave SMP completa, única y válida.
+
+    Reglas:
+    * el archivo debe tener la columna ``smp``;
+    * no se admiten SMP vacías;
+    * no se admiten SMP duplicadas;
+    * no se admiten SMP con formato inválido;
+    * los ``placeholder`` (parcela ``000``) se toleran hasta ``max_placeholder``.
+
+    Devuelve la cantidad de SMP únicas.
+    """
     if not ruta.is_file():
         raise FileNotFoundError(f"No se encontró el CSV del Código Urbanístico: {ruta}")
 
-    claves = set()
+    claves: set[str] = set()
+    invalidos: list[str] = []
+    placeholders = 0
     with ruta.open(encoding="utf-8-sig", newline="") as archivo:
         lector = csv.DictReader(archivo)
         if not lector.fieldnames or "smp" not in lector.fieldnames:
             raise ValueError("El CSV del Código Urbanístico debe incluir una columna 'smp'.")
         for numero_fila, fila in enumerate(lector, start=2):
-            smp = (fila.get("smp") or "").strip()
+            smp = normalizar_smp(fila.get("smp"))
             if not smp:
-                raise ValueError(f"SMP vacía en el CSV del Código Urbanístico, fila {numero_fila}.")
+                raise ValueError(
+                    f"SMP vacía en el CSV del Código Urbanístico, fila {numero_fila}."
+                )
             if smp in claves:
                 raise ValueError(f"SMP duplicada en el CSV del Código Urbanístico: {smp}")
             claves.add(smp)
 
+            clasificacion = clasificar_smp(smp)
+            if clasificacion == "invalido":
+                invalidos.append(smp)
+            elif clasificacion == "placeholder":
+                placeholders += 1
+
     if not claves:
         raise ValueError("El CSV del Código Urbanístico no contiene registros.")
+    if invalidos:
+        ejemplos = ", ".join(sorted(set(invalidos))[:10])
+        raise ValueError(
+            f"{len(invalidos)} SMP con formato inválido en el Código Urbanístico "
+            f"(ejemplos: {ejemplos})."
+        )
+
+    proporcion_placeholder = placeholders / len(claves)
+    if proporcion_placeholder > max_placeholder:
+        raise ValueError(
+            f"{proporcion_placeholder:.1%} de SMP son placeholder de parcela 000 "
+            f"(máximo permitido {max_placeholder:.1%})."
+        )
     return len(claves)

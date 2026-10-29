@@ -37,6 +37,7 @@ python -m pytest tests/ -v
 - `src/data_loader.py`, `cleaning.py` y `geografia.py`: carga, normalización, deduplicación y asignación trazable de comuna.
 - `src/estadistica.py`: distribuciones, outliers, Gini/Lorenz y asociación estadística.
 - `src/modelado.py` y `src/oportunidad.py`: modelos de comuna, clustering e índice de oportunidad.
+- `src/urbanismo.py`: validación de SMP, reglas de compatibilidad versionadas, panel y cobertura CU + habilitaciones + EPOK.
 - `src/apis_gcba.py`, `limpiar_smp.py` y `enriquecer_epok.py`: clientes GCBA y enriquecimiento catastral.
 - `src/export_postgres.py` y `db/`: esquema y carga de datos para PostgreSQL.
 - `notebook/`: exploración, modelos, clustering y análisis del Código Urbanístico.
@@ -50,14 +51,15 @@ Estructura local necesaria:
 ```text
 data/
 ├── raw/        # CSV originales de habilitaciones y codigo-urbanistico.csv
-├── processed/  # habilitaciones_caba_clean.csv y codigo_urbanistico_limpio.csv
+├── processed/  # habilitaciones_caba_clean.csv, codigo_urbanistico_limpio.csv
+│               # y artefactos urbanismo_smp.csv / urbanismo_cobertura.json
 └── geo/        # callejero.csv, comunas.geojson y manzanas_catastrales.csv
 ```
 
 El padrón `data/processed/habilitaciones_caba_clean.csv` también puede generarse ejecutando el notebook 01.
 
 - Comuna asignada al **91,8%** de los registros; el 8,2% restante no tiene información suficiente para georreferenciarse.
-- **79,7%** de los registros tiene una clave catastral `smp` utilizable.
+- **79,7%** de los registros tiene una clave catastral `smp` no nula; **67,0%** tiene formato catastral válido (`estandar` o `ampliado`). El 20,3% restante no tiene SMP y no puede cruzarse.
 - **154.473** registros tienen fecha de habilitación. Los datos modernos de 2025/2026 pueden carecer de fecha y número de solicitud.
 - El archivo 2022 disponible no tiene estructura tabular y se excluye.
 
@@ -70,17 +72,34 @@ El detalle de columnas, fuentes y reglas de limpieza está en `src/cleaning.py`,
 | `01_exploracion_y_limpieza.ipynb` | Pipeline, controles de calidad y EDA del padrón. |
 | `02_modelos.ipynb` | Regresión de volumen y clasificación de comuna. |
 | `03_clustering_oportunidad.ipynb` | Grupos de comunas e índice de oportunidad por comuna y rubro. |
-| `04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb` | Limpieza del Código Urbanístico, compatibilidad ilustrativa y análisis de fecha de habilitación. |
+| `04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb` | Limpieza del Código Urbanístico, cruce con habilitaciones/EPOK y reglas de compatibilidad versionadas. |
 
 Los resultados son exploratorios, no pronósticos ni decisiones regulatorias. En el notebook 02, la clasificación de comuna alcanza **17,7%** de accuracy frente a un baseline de **15,3%**; el split temporal de la regresión obtiene R² negativo. El índice de oportunidad resume tendencias históricas y no mide demanda futura.
 
-El notebook 04 predice si el padrón tiene una fecha de habilitación registrada. **La ausencia de fecha no significa que el trámite haya sido rechazado.** Su matriz de compatibilidad usa estados simulados y no representa una evaluación normativa real.
+El notebook 04 predice si el padrón tiene una fecha de habilitación registrada. **La ausencia de fecha no significa que el trámite haya sido rechazado.** La sección de compatibilidad usa las reglas versionadas de `db/seed/reglas_compatibilidad_urbanistica.json` y el panel generado por `src/urbanismo.py`; sus estados son señales de fricción, no permisos.
 
 ## Código Urbanístico
 
 El notebook 04 procesa `data/raw/codigo-urbanistico.csv` y genera `data/processed/codigo_urbanistico_limpio.csv`. La clave `smp` permite cruces con habilitaciones y fichas EPOK. La limpieza normaliza marcadores nulos y tipos, valida la clave y conserva faltantes en campos opcionales o dispersos. Los valores FOT negativos y los candidatos a outlier se reportan para revisión; no se corrigen automáticamente.
 
-Las columnas `dist_*` pueden tener nulos estructurales. La matriz de permisos que aparece en la demostración es simulada y no debe usarse para determinar si un rubro está permitido.
+Las columnas `dist_*` pueden tener nulos estructurales. `dist_cpu_1` pertenece al Código de Planeamiento Urbano derogado: se conserva como contexto y se marca `dist_cpu_1_vigente=false`. Las columnas `uso_1/2/3` son **mixtura de uso**, no permisos de rubro.
+
+### Compatibilidad y cobertura (reglas versionadas)
+
+`--codigo-urbanistico` valida los SMP, genera el panel `data/processed/urbanismo_smp.csv` (una fila por SMP), el reporte `urbanismo_cobertura.json` y carga el CU aplanado más las tablas de urbanismo:
+
+```bash
+python src/export_postgres.py --codigo-urbanistico      # artefactos + carga
+python src/export_postgres.py --codigo-urbanistico --sin-epok   # sin consultar EPOK
+python src/export_postgres.py --codigo-urbanistico --dry-run    # solo validar/calcular
+```
+
+- Reglas en `db/seed/reglas_compatibilidad_urbanistica.json` (versión `1.0.0`, 12 reglas, con advertencia y huella SHA-256). Se evalúan por `prioridad` ascendente; gana la primera que coincide y, si ninguna coincide, el estado es `no_verificable`.
+- Estados: `compatible`, `requiere_revision`, `no_compatible`, `no_verificable`. `compatible` significa "sin señales de fricción en los campos disponibles", **no** permiso de uso.
+- Tablas: `codigo_urbanistico` (fila completa en JSONB + columnas aplanadas), `urbanismo_smp` (panel vigente), `urbanismo_cobertura` (historial) y las vistas `urbanismo_smp_actual`, `urbanismo_cobertura_actual`, `urbanismo_habilitaciones`.
+- Cobertura de la última corrida: **27.709 / 45.152 SMP del padrón (61,4%)** tienen fila en el CU; **139.643 / 216.991 habilitaciones (64,3%)** quedan cruzadas y **82.210 (37,9%)** tienen EPOK. Solo el 8,7% de los SMP del CU aparece en habilitaciones.
+
+La documentación completa de reglas, estados, métricas y limitaciones está en [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md).
 
 ## Índice de oportunidad (artefacto consultable)
 
@@ -157,7 +176,7 @@ La cobertura del checklist es un piloto, no un catálogo completo de rubros de l
 python -m pytest tests/ -v
 ```
 
-La suite verifica contratos de datos, estadísticas, oportunidad y clientes de APIs. Ejecuta las pruebas desde `data_analytics/innovalab`.
+La suite verifica contratos de datos, estadísticas, oportunidad, urbanismo y clientes de APIs. Ejecuta las pruebas desde `data_analytics/innovalab`.
 
 Las pruebas de contrato en `tests/test_data.py` validan `data/processed/habilitaciones_caba_clean.csv`. Si el archivo no existe, pytest las marca como omitidas; una suite sin omisiones de contrato requiere que el CSV esté disponible localmente.
 
@@ -166,6 +185,7 @@ Las pruebas de contrato en `tests/test_data.py` validan `data/processed/habilita
 - Hay años faltantes en la cobertura histórica; el campo `anio` identifica el archivo de origen y no constituye una serie temporal completa.
 - La cobertura geográfica depende de la calidad de direcciones y claves del padrón original.
 - La superficie del padrón puede ser cero o faltar; EPOK aporta datos catastrales cuando la SMP se resuelve.
-- Los estados del Código Urbanístico en la demostración y la etiqueta de fecha de habilitación no equivalen a permisos ni a resultados de rechazo.
+- Los estados del Código Urbanístico son señales de fricción, no permisos ni resultados de rechazo. La compatibilidad no evalúa el rubro y `compatible` no implica que el uso esté permitido.
 - `descripcion_rubro` falta en 2020, 2021, 2023 y 2024 (esos archivos solo traen `codigo_rubro`). El índice de oportunidad, por lo tanto, se calcula con los años que sí tienen rubro descrito (2015, 2019, 2025 y 2026).
 - El backtest mínimo del índice (corte 2019 → evaluación 2025) da Spearman −0,178 y top-10 hit rate 0,0: el score es orientativo y no debe presentarse como pronóstico.
+- La cobertura del cruce urbanístico es parcial: 61,4% de los SMP del padrón tienen fila en el Código Urbanístico y 35,7% de las habilitaciones no puede cruzarse. Los estados `no_verificable` reflejan esa limitación, no un rechazo.

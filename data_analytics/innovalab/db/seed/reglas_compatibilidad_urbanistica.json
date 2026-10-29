@@ -1,0 +1,122 @@
+{
+  "version": "1.0.0",
+  "fecha": "2026-10-28",
+  "nombre": "Reglas de compatibilidad urbanística orientativa",
+  "descripcion": "Clasifica una parcela (SMP) según señales de fricción observables en el Código Urbanístico de la CABA, el padrón de habilitaciones y las fichas EPOK. No evalúa el rubro ni reemplaza la normativa vigente.",
+  "advertencia": "Este resultado es orientativo y NO constituye permiso de uso, habilitación comercial, aptitud legal ni asesoramiento profesional. Antes de invertir o abrir un local, verificá el Código Urbanístico vigente, el distrito, el uso admitido y los trámites aplicables ante el GCBA.",
+  "prioridad": "Las reglas se evalúan en orden ascendente de 'prioridad'. La primera regla que coincide define el estado; el orden del archivo desempata. Si ninguna coincide, el estado es 'no_verificable'.",
+  "estados": {
+    "compatible": "No se detectaron señales de fricción en los campos disponibles. No implica que el uso del rubro esté permitido.",
+    "requiere_revision": "Hay una señal que exige revisión humana o normativa adicional (patrimonio, riesgo, distrito especial, línea de edificación o datos faltantes).",
+    "no_compatible": "La parcela está afectada por una condición urbanística declarada (espacio público, futura apertura o futuro ensanche) que desaconseja una localización estable mientras la afectación esté vigente.",
+    "no_verificable": "No se puede identificar o verificar la parcela: SMP ausente, placeholder o inválido, o SMP sin fila en el Código Urbanístico."
+  },
+  "reglas": [
+    {
+      "id": "SMP_NO_VERIFICABLE",
+      "prioridad": 10,
+      "estado": "no_verificable",
+      "cuando": {
+        "smp_clasificacion": ["sin_dato", "placeholder", "invalido"]
+      },
+      "motivo": "El SMP no identifica una parcela catastral utilizable (ausente, placeholder de parcela 000 o formato inválido); no se puede cruzar de forma confiable con el Código Urbanístico ni con EPOK."
+    },
+    {
+      "id": "CU_AUSENTE",
+      "prioridad": 20,
+      "estado": "no_verificable",
+      "cuando": {
+        "codigo_presente": false
+      },
+      "motivo": "El SMP no figura en el Código Urbanístico cargado. Puede ser una parcela nueva, una diferencia de digitación o un cambio catastral; requiere verificación en la fuente oficial."
+    },
+    {
+      "id": "ESPACIO_PUBLICO",
+      "prioridad": 30,
+      "estado": "no_compatible",
+      "cuando": {
+        "familia_distrito": ["ESPACIO_PUBLICO"]
+      },
+      "motivo": "La parcela está alcanzada por el distrito Espacio Público. No es una parcela privada apta para localización comercial; verificá la afectación y el dominio."
+    },
+    {
+      "id": "AFECTACION_APERTURA",
+      "prioridad": 31,
+      "estado": "no_compatible",
+      "cuando": {
+        "apertura": true
+      },
+      "motivo": "La parcela está afectada a futura apertura según el Código Urbanístico (campo apertura=1). La afectación puede condicionar o impedir una localización estable; requiere revisión previa."
+    },
+    {
+      "id": "AFECTACION_ENSANCHE",
+      "prioridad": 32,
+      "estado": "no_compatible",
+      "cuando": {
+        "ensanche": true
+      },
+      "motivo": "La parcela está afectada a futuro ensanche según el Código Urbanístico (campo ensanche=1). La afectación puede condicionar o impedir una localización estable; requiere revisión previa."
+    },
+    {
+      "id": "PATRIMONIO_CATALOGADO",
+      "prioridad": 40,
+      "estado": "requiere_revision",
+      "cuando": {
+        "catalogado": true
+      },
+      "motivo": "El edificio está catalogado (nivel de protección integral, estructural o cautelar). Cualquier intervención requiere revisión patrimonial específica."
+    },
+    {
+      "id": "RIESGO_HIDRICO",
+      "prioridad": 41,
+      "estado": "requiere_revision",
+      "cuando": {
+        "riesgo_hidrico": true
+      },
+      "motivo": "La parcela está afectada por Riesgo Hídrico (campo rh=1). Verificá las restricciones y recaudos aplicables antes de invertir."
+    },
+    {
+      "id": "LINEA_EDIFICACION",
+      "prioridad": 42,
+      "estado": "requiere_revision",
+      "cuando": {
+        "linea_edificacion_particularizada": true
+      },
+      "motivo": "La parcela está afectada a Línea de Edificación Particularizada (campo lep=1). La línea de edificación debe verificarse en el plano y con la autoridad de aplicación."
+    },
+    {
+      "id": "CONO_AEROPARQUE",
+      "prioridad": 43,
+      "estado": "requiere_revision",
+      "cuando": {
+        "cono_aeroparque": true
+      },
+      "motivo": "La parcela está dentro del Cono de Aproximación Aeroparque (campo anac=1). Puede haber restricciones de altura o uso que requieren verificación aeronáutica."
+    },
+    {
+      "id": "DISTRITO_ESPECIAL",
+      "prioridad": 50,
+      "estado": "requiere_revision",
+      "cuando": {
+        "familia_distrito": ["APH", "U", "UP", "UF", "AE", "RUA", "EE", "AREA_RENOVACION", "otro"]
+      },
+      "motivo": "La parcela pertenece a un distrito especial o área con régimen particular. Las reglas generales de uso y edificabilidad no alcanzan; requiere revisión normativa específica."
+    },
+    {
+      "id": "DISTRITO_SIN_DATO",
+      "prioridad": 51,
+      "estado": "requiere_revision",
+      "cuando": {
+        "familia_distrito": ["sin_dato"]
+      },
+      "motivo": "El Código Urbanístico declara 'Sin dato' para el distrito especial de la parcela. Falta información para descartar un régimen particular."
+    },
+    {
+      "id": "SIN_SENALES_DE_FRICCION",
+      "prioridad": 99,
+      "estado": "compatible",
+      "cuando": {},
+      "motivo": "No se detectaron señales de fricción en los campos disponibles del Código Urbanístico. Esto no implica que el rubro esté permitido: verificá el uso admitido y los trámites ante el GCBA."
+    }
+  ]
+}

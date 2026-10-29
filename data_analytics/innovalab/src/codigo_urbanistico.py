@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.data_loader import PROCESSED_DIR, RAW_DIR
+from src.urbanismo import normalizar_smp
 
 RAW_CODIGO = RAW_DIR / "codigo-urbanistico.csv"
 OUTPUT_CODIGO = PROCESSED_DIR / "codigo_urbanistico_limpio.csv"
@@ -27,7 +28,7 @@ def limpiar_codigo_urbanistico(df: pd.DataFrame) -> pd.DataFrame:
             r"(?i)^(?:nan|none|null|na|n/a)?$", pd.NA, regex=True
         )
 
-    limpio["smp"] = limpio["smp"].str.upper()
+    limpio["smp"] = limpio["smp"].map(normalizar_smp).astype("string")
     for columna in COLUMNAS_NUMERICAS:
         if columna in limpio.columns:
             limpio[columna] = pd.to_numeric(limpio[columna], errors="coerce")
