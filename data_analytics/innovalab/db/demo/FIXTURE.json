@@ -1,0 +1,52 @@
+{
+  "version_fixture": "1.0.0",
+  "version_sanitizacion": "1.0.0",
+  "generado_en": "2026-10-28T00:00:00+00:00",
+  "semilla": 20261028,
+  "fuente": {
+    "padron": "data/processed/habilitaciones_caba_clean.csv",
+    "epok": "epok_fichas (ficha compactada)",
+    "postgres_version": "18.6",
+    "dump_referencia": "PostgreSQL 18.3 (db/innovalab_dump.sql)"
+  },
+  "sanitizacion": {
+    "reemplazados": [
+      "solicitud",
+      "numero_expediente",
+      "razon_social",
+      "partida_matriz"
+    ],
+    "conservados": [
+      "tipo_tramite",
+      "tipo_expediente",
+      "subtipo_expediente",
+      "fecha_habilitacion",
+      "fecha_fuente",
+      "codigo_rubro",
+      "descripcion_rubro",
+      "superficie",
+      "seccion",
+      "manzana",
+      "parcela",
+      "smp",
+      "smp_fuente",
+      "calles",
+      "comuna",
+      "comuna_fuente",
+      "origen",
+      "anio"
+    ],
+    "nota": "Pseudonimizado, no anonimizado: se quitaron identificadores directos, pero combinaciones de SMP, rubro y fecha podrían seguir siendo singulares. No usar para inferir negocios reales."
+  },
+  "archivos": {
+    "habilitaciones_demo.csv": {
+      "filas": 150,
+      "smp": 30,
+      "sha256": "d0603201cdb1c55a91ee6ab17487fc8c012b281e0eb0beaf25ef6572440f901b"
+    },
+    "epok_fichas_demo.csv": {
+      "filas": 30,
+      "sha256": "d517f822faf4dd5a467efea95393c88e03e892266310b0d761d422eb2331946b"
+    }
+  }
+}

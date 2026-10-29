@@ -17,7 +17,8 @@ Pipeline reproducible para **integrar, limpiar, validar y publicar** datos de ha
 | Índice de oportunidad | **1.121 filas · 15 comunas · 80 rubros** |
 | Fórmula del índice | **`1.0.0`** · pesos 40/40/20 · `anio_ref=2025` |
 | Reglas de compatibilidad | **`1.0.0`** · 12 reglas versionadas |
-| Pruebas | **101** |
+| Fixture de demo | **`1.0.0`** · 150 habilitaciones · 30 SMP · 30 fichas EPOK |
+| Pruebas | **120** |
 
 Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json), [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json) y [`data/processed/epok_cobertura.json`](data/processed/epok_cobertura.json).
 
@@ -57,6 +58,35 @@ Correr las pruebas:
 python -m pytest tests/ -v
 ```
 
+## Demo sin Git LFS
+
+El dump completo pesa ~89 MB, se versiona con Git LFS y depende de PostgreSQL
+18. Para demos, onboarding y CI hay un camino corto que no necesita nada de eso:
+un fixture pequeño y sanitizado servido por `docker compose`.
+
+```bash
+cd data_analytics/innovalab
+docker compose up -d --wait
+psql "postgresql://innovalab:innovalab_demo@localhost:55432/innovalab" \
+     -v ON_ERROR_STOP=1 -f db/demo/verificar_demo.sql
+```
+
+Esto levanta **PostgreSQL 18** y carga el esquema más `db/demo/`: **150
+habilitaciones**, **30 SMP**, **30 fichas EPOK** y los 12 requisitos de rubros.
+El fixture (`db/demo/`, versión **`1.0.0`**, semilla `20261028`) se versiona en
+Git normal y es **pseudonimizado**, no anonimizado: no sirve para inferir
+negocios reales. Se regenera con `python scripts/generar_demo.py`.
+
+Para restaurar el dump real con un destino de otra versión:
+
+```bash
+scripts/restore_dump.sh --info                     # versiones y compatibilidad
+scripts/restore_dump.sh --dsn "$DATABASE_URL"      # filtros + restore + conteos
+```
+
+Detalle de rutas, versiones, sanitización, `docker compose`, restauración y CI:
+[`docs/datos_demo.md`](docs/datos_demo.md).
+
 ## Estructura
 
 ```text
@@ -84,13 +114,23 @@ data_analytics/innovalab/
 ├── db/
 │   ├── schema.sql              # Tablas, índices y vistas
 │   ├── seed/                   # Requisitos de rubros y reglas de compatibilidad
+│   ├── demo/                   # Fixture 1.0.0 sanitizado (Git normal, sin LFS)
+│   │   ├── habilitaciones_demo.csv
+│   │   ├── epok_fichas_demo.csv
+│   │   ├── FIXTURE.json        # Versión, semilla y SHA-256
+│   │   ├── init_demo.sql       # Carga del fixture
+│   │   └── verificar_demo.sql  # Conteos y cruce por SMP
 │   └── innovalab_dump.sql      # Dump de referencia (Git LFS)
-├── docs/                       # Fórmula del índice y detalle urbanístico
+├── scripts/
+│   ├── generar_demo.py         # Genera el fixture de forma determinista
+│   └── restore_dump.sh         # Restore del dump con filtros por versión
+├── docker-compose.yml          # PostgreSQL 18 + esquema + fixture
+├── docs/                       # Fórmula del índice, urbanismo y datos de demo
 ├── notebook/                   # Exploración, modelos, clustering y CU
-└── tests/                      # 101 pruebas
+└── tests/                      # 120 pruebas
 ```
 
-Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
+Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. El fixture de `db/demo/` es la excepción: son pocos KB y se versiona en Git normal para que la demo funcione sin LFS. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
 
 ## Pipeline de datos
 
@@ -386,6 +426,16 @@ El workflow [`.github/workflows/analytics-refresh.yml`](../../.github/workflows/
 El job instala dependencias, corre `pytest` y ejecuta `python -m src.run_pipeline` con `DATABASE_URL` tomado de los secretos del repositorio. El esquema debe existir previamente y el job no crea infraestructura ni consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
 
 El enriquecimiento EPOK **no** forma parte del workflow semanal: depende de la API del GCBA y puede tardar. Se ejecuta aparte con `python src/enriquecer_epok.py` y deja el dashboard y las alertas en `data/processed/`.
+
+El workflow [`.github/workflows/analytics-demo-restore.yml`](../../.github/workflows/analytics-demo-restore.yml) cubre el camino corto sin LFS. Corre en push y pull request que toquen `db/`, `scripts/`, `tests/` o `docker-compose.yml`:
+
+| Job | Qué prueba |
+|---|---|
+| `fixture` | Tests del fixture y del script, sin base ni Docker |
+| `compose` | `docker compose up` real y conteos contra `FIXTURE.json` |
+| `restore-demo` | `pg_dump` 18 real → `restore_dump.sh` → verificación |
+
+El job `restore-full` (dump de 89 MB) es **manual** y requiere que los objetos LFS estén subidos al remoto. Detalle: [`docs/datos_demo.md`](docs/datos_demo.md).
 
 ## Notebooks
 
