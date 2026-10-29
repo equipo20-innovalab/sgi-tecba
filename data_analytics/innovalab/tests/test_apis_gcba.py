@@ -74,6 +74,23 @@ def test_epok_devuelve_none_en_timeout(mock_get):
     assert consultar_epok_por_smp("01-001-001A") is None
 
 
+@patch("src.apis_gcba.time.sleep")
+@patch("src.apis_gcba.requests.get")
+def test_epok_reintenta_con_backoff_exponencial(mock_get, mock_sleep):
+    import requests as req
+    mock_get.side_effect = [
+        req.Timeout(),
+        req.Timeout(),
+        _resp_json({"smp": "001-001-001A", "superficie_total": "10"}),
+    ]
+
+    datos = consultar_epok_por_smp("01-001-001A", reintentos=2, espera=0.5)
+
+    assert datos["smp"] == "001-001-001A"
+    assert mock_get.call_count == 3
+    assert [llamada.args[0] for llamada in mock_sleep.call_args_list] == [0.5, 1.0]
+
+
 def test_epok_rechaza_smp_vacio():
     assert consultar_epok_por_smp("") is None
     assert consultar_epok_por_smp(None) is None

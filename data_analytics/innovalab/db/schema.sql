@@ -90,8 +90,11 @@ CREATE INDEX IF NOT EXISTS idx_habilitaciones_com_rub ON habilitaciones (comuna,
 -- GCBA. Una fila por propiedad (SMP), no por habilitación: muchas habilitaciones
 -- comparten el mismo inmueble.
 --
--- Se llena con: python src/enriquecer_epok.py   (reanudable, llama a EPOK)
+-- Se llena con: python src/enriquecer_epok.py   (incremental, reintentos, llama a EPOK)
 -- El backend la joinea con habilitaciones por smp.
+--
+-- `actualizado_en` es la fecha de la última ficha VÁLIDA. Un fallo posterior no
+-- la pisa: solo actualiza estado, intentos, ultimo_error y ultimo_intento_en.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS epok_fichas (
     smp                    TEXT PRIMARY KEY,
@@ -107,8 +110,38 @@ CREATE TABLE IF NOT EXISTS epok_fichas (
     unidades_funcionales   INTEGER,
     propiedad_horizontal   TEXT,
     puertas                JSONB,              -- accesos (calle/altura)
-    actualizado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
+    actualizado_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    estado                 TEXT NOT NULL DEFAULT 'ok',
+    intentos               INTEGER NOT NULL DEFAULT 0,
+    ultimo_error           TEXT,
+    ultimo_intento_en      TIMESTAMPTZ,
+    CONSTRAINT epok_fichas_estado_check CHECK (estado IN ('ok', 'fallido'))
 );
+
+-- Migración idempotente para bases creadas con el esquema anterior.
+ALTER TABLE epok_fichas ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'ok';
+ALTER TABLE epok_fichas ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE epok_fichas ADD COLUMN IF NOT EXISTS ultimo_error TEXT;
+ALTER TABLE epok_fichas ADD COLUMN IF NOT EXISTS ultimo_intento_en TIMESTAMPTZ;
+
+DO $$
+BEGIN
+    ALTER TABLE epok_fichas
+        ADD CONSTRAINT epok_fichas_estado_check
+        CHECK (estado IN ('ok', 'fallido'));
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END
+$$;
+
+UPDATE epok_fichas
+SET estado = 'fallido'
+WHERE ficha IS NULL AND estado = 'ok';
+
+CREATE INDEX IF NOT EXISTS idx_epok_fichas_actualizado
+    ON epok_fichas (actualizado_en);
+CREATE INDEX IF NOT EXISTS idx_epok_fichas_estado
+    ON epok_fichas (estado);
 
 -- -----------------------------------------------------------------------------
 -- codigo_urbanistico: atributos completos del Código Urbanístico por parcela.

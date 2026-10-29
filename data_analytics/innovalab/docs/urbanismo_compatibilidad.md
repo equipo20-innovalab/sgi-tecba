@@ -129,7 +129,9 @@ Corrida del **2026-10-29T00:37Z** (reglas `1.0.0`, sha256
 - Uso del CU por parte de habilitaciones: **27.709 / 318.126 = 8,7%**.
 - Habilitaciones con fila en CU: **139.643 / 216.991 = 64,3%**.
 - Habilitaciones con ficha EPOK: **82.210 / 216.991 = 37,9%** (todas ellas también
-  tienen fila en CU).
+  tienen fila en CU). El dashboard EPOK normaliza los SMP con relleno de ceros y
+  reporta 100.269 (46,2%); esta tabla usa la clave sin relleno del panel. Ver
+  [`epok_enriquecimiento.md`](epok_enriquecimiento.md).
 - Habilitaciones sin SMP: **44.152 = 20,3%**.
 
 Estados por SMP (335.569):

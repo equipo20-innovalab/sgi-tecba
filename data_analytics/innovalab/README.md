@@ -13,13 +13,13 @@ Pipeline reproducible para **integrar, limpiar, validar y publicar** datos de ha
 | Código Urbanístico limpio | **318.126 parcelas** |
 | Panel urbanístico | **335.569 SMP · 44 columnas** |
 | Habilitaciones cruzadas con CU | **139.643 (64,3%)** |
-| Habilitaciones con ficha EPOK | **82.210 (37,9%)** |
+| Fichas EPOK | **19.608 · 51,9% SMP · 46,2% habilitaciones** |
 | Índice de oportunidad | **1.121 filas · 15 comunas · 80 rubros** |
 | Fórmula del índice | **`1.0.0`** · pesos 40/40/20 · `anio_ref=2025` |
 | Reglas de compatibilidad | **`1.0.0`** · 12 reglas versionadas |
-| Pruebas | **91** |
+| Pruebas | **101** |
 
-Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json) y [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json).
+Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json), [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json) y [`data/processed/epok_cobertura.json`](data/processed/epok_cobertura.json).
 
 ## Inicio rápido
 
@@ -73,7 +73,8 @@ data_analytics/innovalab/
 │   ├── modelado.py             # Regresión y clasificación exploratorias
 │   ├── apis_gcba.py            # Clientes EPOK, USIG y BA Data
 │   ├── limpiar_smp.py          # Normalización de claves catastrales
-│   ├── enriquecer_epok.py      # Enriquecimiento por lotes y reanudable
+│   ├── enriquecer_epok.py      # Enriquecimiento incremental, reintentos y alertas
+│   ├── epok_cobertura.py       # Cobertura, dashboard HTML y alertas EPOK
 │   ├── export_postgres.py      # Artefactos + carga a PostgreSQL
 │   └── run_pipeline.py         # Orquestación build → validate → load
 ├── data/
@@ -86,7 +87,7 @@ data_analytics/innovalab/
 │   └── innovalab_dump.sql      # Dump de referencia (Git LFS)
 ├── docs/                       # Fórmula del índice y detalle urbanístico
 ├── notebook/                   # Exploración, modelos, clustering y CU
-└── tests/                      # 91 pruebas
+└── tests/                      # 101 pruebas
 ```
 
 Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
@@ -137,6 +138,8 @@ Opciones útiles: `--reglas <ruta.json>` cambia el archivo de reglas, `--sin-epo
 | `indice_oportunidad_meta.json` | Versión, pesos, parámetros y SHA-256 del CSV de origen |
 | `urbanismo_smp.csv` | Panel por SMP, 335.569 × 44 |
 | `urbanismo_cobertura.json` | Métricas, distribuciones, huellas y limitaciones |
+| `epok_cobertura.json` | Cobertura EPOK, cortes por año/comuna y alertas |
+| `epok_dashboard.html` | Dashboard autocontenido de cobertura EPOK |
 
 ## Contrato de calidad
 
@@ -202,7 +205,7 @@ Reglas `1.0.0`: `SMP_NO_VERIFICABLE` (10), `CU_AUSENTE` (20), `ESPACIO_PUBLICO` 
 | SMP del padrón con fila en CU | **27.709 / 45.152 = 61,4%** |
 | Uso del CU por habilitaciones | **27.709 / 318.126 = 8,7%** |
 | Habilitaciones con fila en CU | **139.643 / 216.991 = 64,3%** |
-| Habilitaciones con EPOK | **82.210 / 216.991 = 37,9%** |
+| Habilitaciones con EPOK (panel urbanístico) | **82.210 / 216.991 = 37,9%** |
 | Habilitaciones sin SMP | **44.152 / 216.991 = 20,3%** |
 
 Estados por SMP: `compatible` 187.142 (55,8%) · `requiere_revision` 128.124 (38,2%) · `no_verificable` 18.623 (5,5%) · `no_compatible` 1.680 (0,5%).
@@ -210,6 +213,8 @@ Estados por SMP: `compatible` 187.142 (55,8%) · `requiere_revision` 128.124 (38
 Estados por habilitación: `compatible` 96.829 (44,6%) · `requiere_revision` 40.624 (18,7%) · `no_verificable` 33.542 (15,5%) · `sin_smp` 44.152 (20,3%) · `no_compatible` 1.844 (0,8%).
 
 La lectura correcta es de **cobertura de datos**, no de aprobación: el 35,7% de las habilitaciones no tiene fila en el CU y el 20,3% no tiene SMP. Esas ausencias explican la mayor parte de los estados no verificables.
+
+> El panel urbanístico cruza EPOK con los SMP sin relleno de ceros. El dashboard EPOK usa `limpiar_smp` y reporta **100.269 habilitaciones con ficha (46,2%)**; la diferencia es una limitación de normalización conocida, no un dato distinto de EPOK.
 
 Documentación completa: [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md).
 
@@ -278,7 +283,7 @@ python -m src.run_pipeline
 |---|---|
 | `habilitaciones` | Una fila por registro del padrón |
 | `rubros_requisitos` | Checklist curado por rubro, etapa y trámite |
-| `epok_fichas` | Una ficha catastral por SMP enriquecido |
+| `epok_fichas` | Una ficha catastral por SMP, con estado, intentos, último error y fechas de actualización |
 | `codigo_urbanistico` | Una fila por parcela: JSONB completo + columnas aplanadas |
 | `urbanismo_smp` | Panel vigente, una fila por SMP |
 | `urbanismo_cobertura` | Historial de corridas con reglas y huellas |
@@ -336,20 +341,51 @@ ORDER BY etapa, orden;
 - **BA Data (CKAN):** búsqueda y consulta de datasets abiertos.
 - **USIG:** normalización y geocodificación de direcciones; servicio intermitente y no requerido por el pipeline principal.
 
-El enriquecimiento EPOK se puede ejecutar por lotes y reanudar:
+### Enriquecimiento EPOK incremental
+
+`src/enriquecer_epok.py` lee los SMP distintos del padrón procesado, los normaliza con `limpiar_smp` y consulta solo lo necesario:
 
 ```bash
 python src/limpiar_smp.py --dry-run
-python src/enriquecer_epok.py --probar
-python src/enriquecer_epok.py --limite 500
-python src/enriquecer_epok.py
+python src/enriquecer_epok.py --solo-reporte       # dashboard sin llamar a EPOK
+python src/enriquecer_epok.py --probar              # 3 SMP
+python src/enriquecer_epok.py --limite 500          # lote acotado
+python src/enriquecer_epok.py                       # incremental
+python src/enriquecer_epok.py --solo-pendientes     # sin refrescar vencidas
+python src/enriquecer_epok.py --reintentar          # fallidas agotadas
+python src/enriquecer_epok.py --todo                # recarga completa
 ```
+
+Política incremental:
+
+- SMP sin fila: se consulta.
+- SMP fallido: se reintenta hasta `--max-intentos` (default 3).
+- SMP resuelto: se refresca después de `--max-edad-dias` (default 30; 0 desactiva).
+- `--solo-pendientes` omite el refresh de fichas vencidas; `--todo` fuerza todas.
+
+Cada intento se registra en `epok_fichas`: `estado` (`ok`/`fallido`), `intentos`, `ultimo_error`, `ultimo_intento_en` y `actualizado_en` (última ficha válida). Un fallo no borra la última ficha buena. La API usa reintentos con backoff exponencial (`--reintentos`, `--backoff`).
+
+### Dashboard y alertas EPOK
+
+Al terminar, o con `--solo-reporte`, se generan:
+
+- `data/processed/epok_cobertura.json`: cobertura por SMP y habilitación, fichas, cortes por año/comuna, umbrales y alertas.
+- `data/processed/epok_dashboard.html`: dashboard autocontenido con barras de progreso, tablas y alertas.
+
+```bash
+xdg-open data/processed/epok_dashboard.html
+python src/enriquecer_epok.py --solo-reporte --fallar-si-alerta
+```
+
+Alertas: `SIN_PADRON`, `SIN_FICHAS`, `SIN_ACTUALIZACION`, `SLA_VENCIDO`, `COBERTURA_SMP_BAJA`, `COBERTURA_HABILITACIONES_BAJA`, `FICHAS_DESACTUALIZADAS`, `FICHAS_FALLIDAS`, `COLA_PENDIENTE`, `COMUNAS_SIN_COBERTURA` y `ANIOS_SIN_COBERTURA`. El detalle operativo está en [`docs/epok_enriquecimiento.md`](docs/epok_enriquecimiento.md).
 
 ## Automatización
 
 El workflow [`.github/workflows/analytics-refresh.yml`](../../.github/workflows/analytics-refresh.yml) permite ejecución manual, corre los lunes a las **09:17 UTC** y se activa con cambios en `data/raw/`, `data/geo/`, `src/`, `db/schema.sql`, `db/seed/` o `requirements.txt` dentro de `data_analytics/innovalab`.
 
 El job instala dependencias, corre `pytest` y ejecuta `python -m src.run_pipeline` con `DATABASE_URL` tomado de los secretos del repositorio. El esquema debe existir previamente y el job no crea infraestructura ni consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
+
+El enriquecimiento EPOK **no** forma parte del workflow semanal: depende de la API del GCBA y puede tardar. Se ejecuta aparte con `python src/enriquecer_epok.py` y deja el dashboard y las alertas en `data/processed/`.
 
 ## Notebooks
 
@@ -375,6 +411,8 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo y client
 - Hay años faltantes en la cobertura histórica; `anio` identifica el archivo de origen y no forma una serie temporal completa.
 - La cobertura geográfica depende de la calidad de direcciones y claves del padrón original.
 - `superficie` falta o vale cero en la mayoría de los registros; EPOK aporta datos catastrales cuando la SMP se resuelve.
+- La cobertura EPOK es parcial y despareja: 51,9% de los SMP y 46,2% de las habilitaciones al 2026-10-28. Las comunas 8–12 y el año 2025 no tienen fichas; el dashboard lo reporta como alerta.
+- El dashboard EPOK normaliza los SMP con relleno de ceros (`limpiar_smp`); el panel urbanístico usa una normalización sin relleno, por eso su métrica de EPOK es menor. Unificar ambas queda como deuda técnica.
 - `descripcion_rubro` falta en 2020, 2021, 2023 y 2024 (esos archivos solo traen `codigo_rubro`); el índice usa únicamente 2015, 2019, 2025 y 2026.
 - El índice es orientativo: el backtest da Spearman −0,178 y top-10 hit rate 0,0.
 - Los estados urbanísticos son señales de fricción, no permisos ni rechazos. La compatibilidad **no evalúa el rubro** y `compatible` no implica uso permitido.
@@ -386,5 +424,6 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo y client
 
 - [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md) — reglas, estados, panel, cobertura y versionado.
 - [`docs/indice_oportunidad_formula.md`](docs/indice_oportunidad_formula.md) — fórmula, artefacto, backtest y changelog.
+- [`docs/epok_enriquecimiento.md`](docs/epok_enriquecimiento.md) — modelo de datos, refresh incremental, dashboard, alertas y migración.
 - [`db/schema.sql`](db/schema.sql) — esquema completo.
 - [`db/seed/reglas_compatibilidad_urbanistica.json`](db/seed/reglas_compatibilidad_urbanistica.json) — reglas `1.0.0`.
