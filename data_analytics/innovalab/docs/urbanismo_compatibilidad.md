@@ -194,6 +194,19 @@ La carga requiere privilegios de `CREATE` sobre el esquema `public`. Si el
 usuario no los tiene, los artefactos quedan escritos en disco y la corrida
 termina con un aviso (no se pierde el resultado).
 
+Estado de la corrida local del **2026-10-29**: la escritura de artefactos fue
+exitosa, pero la carga falló con `InsufficientPrivilege: permiso denegado al
+esquema public` porque el usuario `matias17` no tiene `CREATE` en `public` ni en
+la base (el dueño es `postgres`). Para habilitar la carga, un administrador debe
+ejecutar una vez:
+
+```sql
+GRANT CREATE ON SCHEMA public TO matias17;
+GRANT CREATE ON DATABASE innovalab TO matias17;
+```
+
+Después alcanza con repetir `python src/export_postgres.py --codigo-urbanistico`.
+
 ## 6. Reproducción
 
 ```bash
