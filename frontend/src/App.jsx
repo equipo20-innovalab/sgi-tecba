@@ -1,146 +1,117 @@
 /**
  * @file App.jsx
- * @description Componente raíz de la aplicación SGI TECBA. Integra la arquitectura modular de la interfaz.
+ * @description Componente raíz de la aplicación SGI TECBA. Integra la arquitectura modular de la interfaz
+ * y el ruteo por hash entre el inicio, rubros, cobertura y fuentes.
  * @author Equipo Frontend - SGI TECBA
  */
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-import ConfirmacionView from './components/ConfirmacionView';
-import TramitesView from './components/TramitesView';
+import { SearchBox } from './components/SearchBox';
+import { ResultPanel } from './components/ResultPanel';
+import { HomeCards } from './components/HomeCards';
+import RubrosView from './components/RubrosView';
+import CoberturaView from './components/CoberturaView';
+import FuentesView from './components/FuentesView';
+import MapView from './components/MapView';
+import { consultarProyecto } from './services/api';
+
+const RUTAS = ['/', '/rubros', '/cobertura', '/fuentes'];
+
+function rutaActual() {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return '/';
+    return hash.startsWith('/') ? hash : `/${hash}`;
+}
 
 export default function App() {
-  const [busqueda, setBusqueda] = useState('');
-  const [pasoActual, setPasoActual] = useState('home'); // 'home' | 'requisitos' | 'tramites'
+    const [path, setPath] = useState(() => {
+        const inicial = rutaActual();
+        return RUTAS.includes(inicial) ? inicial : '/';
+    });
+    const [searchResult, setSearchResult] = useState(null);
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setPasoActual('requisitos'); // Al buscar, pasa a la vista de requisitos
-  };
+    useEffect(() => {
+        const handleHashChange = () => {
+            const destino = rutaActual();
 
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-800">
-      {/* 1. Navbar oficial */}
-      <Navbar />
+            // Permite anclas internas (por ejemplo #main) sin cambiar de página.
+            if (!RUTAS.includes(destino)) return;
 
-      {/* 2. Contenido Principal Dinámico - Expandido al 100% de ancho */}
-      <main className="flex-1 w-full px-4 md:px-12 py-10 flex flex-col items-center">
-        {pasoActual === 'home' && (
-          /* --- VISTA 1: HOME COMPLETO --- */
-          <>
-            {/* Título y Subtítulo */}
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2 text-center">
-              Sistema de Gestión Inteligente
-            </h1>
-            <p className="text-slate-600 mb-8 text-center text-sm md:text-base">
-              Los trámites que necesitas para realizar tu actividad, en un solo lugar.
-            </p>
+            setPath(destino);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
 
-            {/* Buscador Central */}
-            <form onSubmit={handleSearch} className="w-full max-w-3xl bg-white p-2 rounded-xl shadow-md flex items-center mb-12 border border-slate-200">
-              <span className="pl-3 text-slate-400">🔍</span>
-              <input 
-                type="text" 
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación..."
-                className="w-full px-3 py-2 outline-none bg-transparent text-slate-700 text-sm md:text-base"
-              />
-              <button 
-                type="submit" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors text-sm md:text-base shrink-0"
-              >
-                Buscar
-              </button>
-            </form>
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
 
-            {/* Tarjetas Destacadas - Ocupando el ancho completo fluidamente */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-6xl mb-16">
-              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-6">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-4 font-bold">🏢</div>
-                <h3 className="font-bold text-slate-800 text-lg mb-1">¿Quéres abrir tu negocio?</h3>
-                <p className="text-slate-500 text-sm">Conocé los pasos y requisitos necesarios para habilitar tu local.</p>
-              </div>
+    const handleSearch = async (queryText) => {
+        setIsLoading(true);
+        setError('');
+        setSearchResult(null);
 
-              <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-lg transition-shadow cursor-pointer flex flex-col p-6">
-                <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4 font-bold">📋</div>
-                <h3 className="font-bold text-slate-800 text-lg mb-1">Gestioná tu habilitación</h3>
-                <p className="text-slate-500 text-sm">Consultá el estado actual de tus trámites en curso.</p>
-              </div>
-            </div>
+        try {
+            setSearchResult(await consultarProyecto(queryText));
+        } catch (requestError) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : 'No se pudo completar la consulta.'
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-            {/* Sección: ¿Cómo funciona? */}
-            <section className="w-full max-w-6xl mb-16">
-              <h2 className="text-xl font-bold text-slate-800 mb-8">¿Cómo funciona?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">1</span>
-                    <h4 className="font-bold text-slate-800">Contanos que queres hacer</h4>
-                  </div>
-                  <p className="text-slate-500 text-sm pl-10">Escribí la actividad que quieras realizar.</p>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">2</span>
-                    <h4 className="font-bold text-slate-800">Indicá dónde</h4>
-                  </div>
-                  <p className="text-slate-500 text-sm pl-10">Seleccioná una dirección o zona.</p>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">3</span>
-                    <h4 className="font-bold text-slate-800">Te mostramos que necesitas</h4>
-                  </div>
-                  <p className="text-slate-500 text-sm pl-10">Trámites, requisitos, documentación y pasos.</p>
-                </div>
-              </div>
-            </section>
+    return (
+        <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900">
+            <Navbar currentPath={path} />
+            <main id="main" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
+                {path === '/rubros' && <RubrosView />}
+                {path === '/cobertura' && <CoberturaView />}
+                {path === '/fuentes' && <FuentesView />}
 
-            {/* Sección: Gestiones frecuentes */}
-            <section className="w-full max-w-6xl mb-8">
-              <h2 className="text-xl font-bold text-slate-800 mb-6">Gestiones frecuentes</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
-                  <span className="text-2xl mb-2">📄</span>
-                  <span className="text-sm font-medium text-slate-700">Habilitar un comercio.</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
-                  <span className="text-2xl mb-2">🏠</span>
-                  <span className="text-sm font-medium text-slate-700">Iniciar una actividad desde casa.</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
-                  <span className="text-2xl mb-2">🏗️</span>
-                  <span className="text-sm font-medium text-slate-700">Realizar una obra.</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer">
-                  <span className="text-2xl mb-2">⋯</span>
-                  <span className="text-sm font-medium text-slate-700">Otras gestiones.</span>
-                </div>
-              </div>
-            </section>
-          </>
-        )}
+                {path === '/' && (
+                    <>
+                        <SearchBox onSearch={handleSearch} isLoading={isLoading} />
+                        {error && (
+                            <div className="max-w-4xl mx-auto mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+                                <p className="font-semibold">No se pudo consultar el backend.</p>
+                                <p className="mt-1">{error}</p>
+                                <p className="mt-1">Verificá que la API esté activa y que la base de datos tenga los datos cargados.</p>
+                            </div>
+                        )}
 
-        {pasoActual === 'requisitos' && (
-          <ConfirmacionView 
-            direccionBusqueda={busqueda} 
-            onBack={() => setPasoActual('home')} 
-            onVerTramites={() => setPasoActual('tramites')} 
-          />
-        )}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <div className="lg:col-span-7 flex flex-col">
+                                <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 h-full flex flex-col">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-bold text-gcba-dark flex items-center gap-2">
+                                            <span>📍</span> Visor Geográfico Urbano
+                                        </h3>
+                                        <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                                            Satélite Esri · MapLibre
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 min-h-[400px]">
+                                        <MapView location={searchResult?.ubicacion} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="lg:col-span-5 flex flex-col">
+                                <ResultPanel data={searchResult} />
+                            </div>
+                        </div>
 
-        {pasoActual === 'tramites' && (
-          <TramitesView 
-            direccionBusqueda={busqueda} 
-            onBackToConfirmacion={() => setPasoActual('requisitos')} 
-          />
-        )}
-      </main>
-
-      {/* 3. Footer */}
-      <Footer />
-    </div>
-  );
+                        <HomeCards />
+                    </>
+                )}
+            </main>
+            <Footer />
+        </div>
+    );
 }

@@ -1,5 +1,3 @@
-@import 'leaflet/dist/leaflet.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -117,4 +115,34 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+/* borre la configuracion base de Vite asi se ve claro el trabajo, gabriel */
+
+/* Popup del visor: estilo tech translúcido sobre el mapa satelital */
+.maplibregl-popup-content {
+    background: rgba(18, 24, 36, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    color: #f3f4f6 !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+    padding: 10px 14px;
+    font-size: 12px;
+}
+
+.maplibregl-popup-tip {
+    border-top-color: rgba(18, 24, 36, 0.85) !important;
+    border-bottom-color: rgba(18, 24, 36, 0.85) !important;
+}
+
+.maplibregl-popup-close-button {
+    color: #f3f4f6 !important;
+    font-size: 16px;
+    padding: 0 4px;
+}
+
+.maplibregl-popup-close-button:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px;
 }

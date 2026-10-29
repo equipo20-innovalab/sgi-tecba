@@ -1,21 +1,18 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
-from app.schemas.urbanismo import Zonificacion
+from typing import Any, Optional
 
 
 class ConsultaRequest(BaseModel):
     # Modo 1: Lenguaje natural
-    texto: Optional[str] = Field(
-        None, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'"
-    )
-
-    # Modo 2: Estructurado
+    texto: Optional[str] = Field(None, description="Ej: 'Quiero abrir una cafetería en Av. Corrientes 2500'")
+    
+    # Modo 2: Estructurado 
     rubro: Optional[str] = Field(None, description="Ej: 'Cafetería'")
     direccion: Optional[str] = Field(None, description="Ej: 'Av. Corrientes 2500'")
-
+    
     sesion_id: Optional[str] = None
 
-    @model_validator(mode="after")
+    @model_validator(mode='after')
     def validar_inputs(self):
         if not self.texto and not (self.rubro and self.direccion):
             raise ValueError("Enviar 'texto' o la combinación de 'rubro' y 'direccion'")
@@ -29,10 +26,6 @@ class Ubicacion(BaseModel):
     lng: Optional[float] = None
     comuna: Optional[int] = None
     smp: Optional[str] = None
-    barrio: Optional[str] = None
-    calle: Optional[str] = None
-    altura: Optional[int] = None
-    candidatos: list[dict] = Field(default_factory=list)
 
 
 class RequisitoItem(BaseModel):
@@ -54,6 +47,31 @@ class CompetenciaItem(BaseModel):
     superficie: Optional[float]
 
 
+class HabilitacionParcela(BaseModel):
+    solicitud: Optional[int] = None
+    tipo_tramite: Optional[str] = None
+    tipo_expediente: Optional[str] = None
+    subtipo_expediente: Optional[str] = None
+    fecha_habilitacion: Optional[str] = None
+    fecha_fuente: Optional[str] = None
+    numero_expediente: Optional[str] = None
+    codigo_rubro: Optional[float] = None
+    smp: str
+    smp_fuente: Optional[str] = None
+    seccion: Optional[str]
+    manzana: Optional[str]
+    parcela: Optional[str]
+    calles: Optional[str]
+    comuna: Optional[int]
+    comuna_fuente: Optional[str] = None
+    descripcion_rubro: Optional[str]
+    anio: Optional[int]
+    superficie: Optional[float]
+    razon_social: Optional[str] = None
+    partida_matriz: Optional[str] = None
+    origen: Optional[str] = None
+
+
 class FichaCatastral(BaseModel):
     smp: str
     direccion: Optional[str]
@@ -63,6 +81,8 @@ class FichaCatastral(BaseModel):
     unidades_funcionales: Optional[int]
     lat: Optional[float]
     lng: Optional[float]
+    ficha: Optional[dict[str, Any]] = None
+    puertas: Optional[Any] = None
 
 
 class ContextoTerritorial(BaseModel):
@@ -71,9 +91,23 @@ class ContextoTerritorial(BaseModel):
     rubros_top: list[dict]
 
 
+class CoberturaCampo(BaseModel):
+    registros_con_dato: int
+    registros_sin_dato: int
+    cobertura: float
+    expectativa_minima: Optional[float] = None
+    cumple_expectativa: Optional[bool] = None
+    fuentes: dict[str, int] = Field(default_factory=dict)
+
+
+class CoberturaDatos(BaseModel):
+    total_registros: int
+    campos: dict[str, CoberturaCampo]
+
+
 class FuenteUsada(BaseModel):
     nombre: str
-    tipo: str  # "padron" | "catastro" | "curado"
+    tipo: str          # "padron" | "catastro" | "curado"
     url: Optional[str] = None
     fecha_actualizacion: Optional[str] = None
 
@@ -83,19 +117,12 @@ class ConsultaResponse(BaseModel):
     ubicacion: Ubicacion
     requisitos: list[RequisitoItem]
     competencia_cercana: list[CompetenciaItem]
+    habilitaciones_parcela: list[HabilitacionParcela] = Field(default_factory=list)
     ficha_catastral: Optional[FichaCatastral]
-    zonificacion: Optional[Zonificacion] = None
+    codigo_urbanistico: Optional[dict[str, Any]] = None
     contexto_territorial: Optional[ContextoTerritorial]
+    cobertura_datos: Optional[CoberturaDatos] = None
     pasos_sugeridos: list[str]
-    respuesta_ia: Optional[str] = None  # TODO: Sprint 5-6
+    respuesta_ia: Optional[str] = None      # TODO: Sprint 5-6
     fuentes: list[FuenteUsada]
-    mensaje: Optional[str] = None  # aclaraciones si algo no se detectó
-    address: Optional[str] = None
-    district: Optional[str] = None
-    landArea: Optional[str] = None
-    coveredArea: Optional[str] = None
-    maxHeight: Optional[str] = None
-    viabilityStatus: Optional[str] = None
-    activity: Optional[str] = None
-    observaciones: Optional[str] = None
-    rawData: Optional[dict] = None  # Para que puedan acceder a los requisitos crudos
+    mensaje: Optional[str] = None           # aclaraciones si algo no se detectó

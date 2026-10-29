@@ -32,6 +32,12 @@ def extraer_actividad(texto: str) -> str | None:
     return None
 
 
+def extraer_smp(texto: str) -> str | None:
+    """Detecta un identificador catastral explícito en formato sección-manzana-parcela."""
+    match = re.search(r"\b(\d{1,3}-\d{1,3}-\d{1,4}[A-Za-z]?)\b", texto)
+    return match.group(1).upper() if match else None
+
+
 def extraer_direccion(texto: str) -> tuple[str | None, bool]:
     """
     Extrae la dirección del texto.
@@ -77,5 +83,17 @@ def extraer_direccion(texto: str) -> tuple[str | None, bool]:
         calle = match.group(1).strip()
         if len(calle) > 3:  # evitar falsos positivos cortos
             return calle, False
+
+    # 4. Fallback: "<calle> <altura>" sin preposición (ej: "Suipacha 384")
+    patron_desnudo = (
+        r"(?<![\w-])"
+        r"([A-ZÁÉÍÓÚÑ][\w\.]+(?:\s+[A-ZÁÉÍÓÚÑ][\w\.]+){0,2})\s+"
+        r"(\d{3,5})(?!\s*[-/])"
+    )
+    match = re.search(patron_desnudo, texto, re.IGNORECASE)
+    if match:
+        candidato = match.group(1).strip()
+        if candidato.lower() not in {"smp", "comuna"}:
+            return f"{candidato} {match.group(2)}", True
 
     return None, False

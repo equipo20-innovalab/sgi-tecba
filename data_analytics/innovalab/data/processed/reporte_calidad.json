@@ -1,0 +1,177 @@
+{
+  "generado_en": "2026-10-28T10:59:52.005795+00:00",
+  "total_registros": 216991,
+  "columnas": {
+    "solicitud": {
+      "presentes": 191388,
+      "sin_dato": 25603,
+      "cobertura": 0.882,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "tipo_tramite": {
+      "presentes": 156324,
+      "sin_dato": 60667,
+      "cobertura": 0.7204,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "tipo_expediente": {
+      "presentes": 156324,
+      "sin_dato": 60667,
+      "cobertura": 0.7204,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "subtipo_expediente": {
+      "presentes": 156161,
+      "sin_dato": 60830,
+      "cobertura": 0.7197,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "fecha_habilitacion": {
+      "presentes": 154473,
+      "sin_dato": 62518,
+      "cobertura": 0.7119,
+      "expectativa_minima": 0.7,
+      "cumple": true
+    },
+    "numero_expediente": {
+      "presentes": 155815,
+      "sin_dato": 61176,
+      "cobertura": 0.7181,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "codigo_rubro": {
+      "presentes": 151018,
+      "sin_dato": 65973,
+      "cobertura": 0.696,
+      "expectativa_minima": 0.65,
+      "cumple": true
+    },
+    "descripcion_rubro": {
+      "presentes": 181927,
+      "sin_dato": 35064,
+      "cobertura": 0.8384,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "superficie": {
+      "presentes": 47495,
+      "sin_dato": 169496,
+      "cobertura": 0.2189,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "seccion": {
+      "presentes": 188715,
+      "sin_dato": 28276,
+      "cobertura": 0.8697,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "manzana": {
+      "presentes": 187247,
+      "sin_dato": 29744,
+      "cobertura": 0.8629,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "parcela": {
+      "presentes": 190032,
+      "sin_dato": 26959,
+      "cobertura": 0.8758,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "calles": {
+      "presentes": 215091,
+      "sin_dato": 1900,
+      "cobertura": 0.9912,
+      "expectativa_minima": 0.95,
+      "cumple": true
+    },
+    "comuna": {
+      "presentes": 199263,
+      "sin_dato": 17728,
+      "cobertura": 0.9183,
+      "expectativa_minima": 0.9,
+      "cumple": true
+    },
+    "razon_social": {
+      "presentes": 25603,
+      "sin_dato": 191388,
+      "cobertura": 0.118,
+      "expectativa_minima": 0.1,
+      "cumple": true
+    },
+    "partida_matriz": {
+      "presentes": 215330,
+      "sin_dato": 1661,
+      "cobertura": 0.9923,
+      "expectativa_minima": null,
+      "cumple": null
+    },
+    "origen": {
+      "presentes": 216991,
+      "sin_dato": 0,
+      "cobertura": 1.0,
+      "expectativa_minima": 1.0,
+      "cumple": true
+    },
+    "anio": {
+      "presentes": 216991,
+      "sin_dato": 0,
+      "cobertura": 1.0,
+      "expectativa_minima": 1.0,
+      "cumple": true
+    },
+    "smp": {
+      "presentes": 172839,
+      "sin_dato": 44152,
+      "cobertura": 0.7965,
+      "expectativa_minima": 0.75,
+      "cumple": true
+    },
+    "smp_fuente": {
+      "presentes": 216991,
+      "sin_dato": 0,
+      "cobertura": 1.0,
+      "expectativa_minima": 1.0,
+      "cumple": true
+    },
+    "fecha_fuente": {
+      "presentes": 216991,
+      "sin_dato": 0,
+      "cobertura": 1.0,
+      "expectativa_minima": 1.0,
+      "cumple": true
+    },
+    "comuna_fuente": {
+      "presentes": 216991,
+      "sin_dato": 0,
+      "cobertura": 1.0,
+      "expectativa_minima": 1.0,
+      "cumple": true
+    }
+  },
+  "fuentes": {
+    "comuna_fuente": {
+      "catastro": 172527,
+      "archivo": 25249,
+      "sin_dato": 17728,
+      "callejero": 1484,
+      "callejero_fuzzy": 3
+    },
+    "smp_fuente": {
+      "seccion_manzana_parcela": 172839,
+      "sin_dato": 44152
+    },
+    "fecha_fuente": {
+      "archivo": 154473,
+      "sin_dato": 62518
+    }
+  }
+}

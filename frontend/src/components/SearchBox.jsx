@@ -4,15 +4,15 @@
  * @author Equipo Frontend - SGI TECBA
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 
-export const SearchBox = ({ onSearch }) => {
+export const SearchBox = ({ onSearch, isLoading = false }) => {
     const [query, setQuery] = useState('');
     const [isListening, setIsListening] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!query.trim()) return;
+        if (!query.trim() || isLoading) return;
         if (onSearch) {
             onSearch(query);
         }
@@ -61,6 +61,7 @@ export const SearchBox = ({ onSearch }) => {
                     <button
                         type="button"
                         onClick={handleVoiceSearch}
+                        disabled={isListening || isLoading}
                         title="Consulta por voz (Próximamente)"
                         className={`flex-1 sm:flex-none px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all ${
                             isListening
@@ -82,9 +83,10 @@ export const SearchBox = ({ onSearch }) => {
 
                     <button
                         type="submit"
-                        className="flex-1 sm:flex-none bg-gcba-primary hover:bg-blue-900 text-white font-medium px-8 py-3 rounded-xl transition-colors text-sm"
+                        disabled={isLoading}
+                        className="flex-1 sm:flex-none bg-gcba-primary hover:bg-blue-900 disabled:cursor-wait disabled:opacity-60 text-white font-medium px-8 py-3 rounded-xl transition-colors text-sm"
                     >
-                        Buscar
+                        {isLoading ? 'Consultando...' : 'Buscar'}
                     </button>
                 </div>
             </form>

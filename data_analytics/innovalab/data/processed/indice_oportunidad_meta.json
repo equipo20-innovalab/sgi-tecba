@@ -1,0 +1,20 @@
+{
+  "formula_version": "1.0.0",
+  "calculado_en": "2026-10-28T23:51:49.473486+00:00",
+  "pesos": {
+    "crecimiento": 0.4,
+    "baja_saturacion": 0.4,
+    "subrepresentacion": 0.2
+  },
+  "parametros": {
+    "min_licencias": 5,
+    "top_rubros": 80
+  },
+  "n_filas": 1121,
+  "n_comunas": 15,
+  "n_rubros": 80,
+  "anio_ref": 2025,
+  "fuente": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/data/processed/habilitaciones_caba_clean.csv",
+  "fuente_sha256": "a402df6463a221a8d44fc103075c0e37810b4d54f199e217ffca6d1b8bd9a343",
+  "notas": null
+}

@@ -1,6 +1,4 @@
 from pydantic import BaseModel
-from app.schemas.urbanismo import Zonificacion
-
 
 class CatastroResponse(BaseModel):
     smp: str
@@ -11,9 +9,6 @@ class CatastroResponse(BaseModel):
     lng: float | None
     pisos_sobre_rasante: int | None
     unidades_funcionales: int | None
-    barrio: str | None = None
-    comuna: int | None = None
-    zonificacion: Zonificacion | None = None
-
+    
     class Config:
         from_attributes = True
