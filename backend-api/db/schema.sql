@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS habilitaciones (
     tipo_expediente     TEXT,
     subtipo_expediente  TEXT,
     fecha_habilitacion  DATE,
+    fecha_fuente        TEXT,
     numero_expediente   TEXT,
     codigo_rubro        NUMERIC,
     descripcion_rubro   TEXT,
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS habilitaciones (
     manzana             TEXT,
     parcela             TEXT,
     smp                 TEXT,
+    smp_fuente          TEXT,
     calles              TEXT,
     comuna              SMALLINT,
     comuna_fuente       TEXT,
@@ -72,6 +74,9 @@ CREATE TABLE IF NOT EXISTS habilitaciones (
     origen              TEXT,
     anio                SMALLINT
 );
+
+ALTER TABLE habilitaciones ADD COLUMN IF NOT EXISTS fecha_fuente TEXT;
+ALTER TABLE habilitaciones ADD COLUMN IF NOT EXISTS smp_fuente TEXT;
 
 -- Índices para las consultas típicas del backend.
 CREATE INDEX IF NOT EXISTS idx_habilitaciones_comuna  ON habilitaciones (comuna);
@@ -103,4 +108,15 @@ CREATE TABLE IF NOT EXISTS epok_fichas (
     propiedad_horizontal   TEXT,
     puertas                JSONB,              -- accesos (calle/altura)
     actualizado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- codigo_urbanistico: atributos completos del Codigo Urbanistico por parcela.
+-- Fuente: data/processed/codigo_urbanistico_limpio.csv (318.126 SMP).
+-- Los nombres y valores originales de todas las columnas se preservan en JSONB.
+-- Carga: python src/export_postgres.py --codigo-urbanistico
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS codigo_urbanistico (
+    smp     TEXT PRIMARY KEY,
+    datos   JSONB NOT NULL
 );

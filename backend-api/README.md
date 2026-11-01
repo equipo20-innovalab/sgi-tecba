@@ -27,7 +27,7 @@ API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECB
 | Python | 3.12+ | Lenguaje |
 | FastAPI | 0.143+ | Framework web |
 | SQLAlchemy | 2.1+ | ORM |
-| psycopg | 3.3+ | Driver PostgreSQL |
+| psycopg[binary] | 3.3.6 | Driver PostgreSQL con binarios incluidos |
 | Pydantic | 2.14+ | Validación de schemas |
 | Uvicorn | 0.54+ | Servidor ASGI |
 | PostgreSQL | 15 + PostGIS 3.3 | Base de datos (Docker) |
@@ -68,7 +68,7 @@ backend-api/
 ## ✅ Requisitos previos
 
 - **Docker Desktop** (con WSL2 backend en Windows)
-- **Python 3.12+**
+- **Python 3.12 o 3.13**
 - **Git Bash** (Windows) o **WSL/Ubuntu** (recomendado para comandos de Docker)
 - **Puertos libres:** `8000` (API), `5433` (PostgreSQL)
 
@@ -76,7 +76,7 @@ Verificá:
 
 ```bash
 docker --version          # >= 24.0
-python --version          # >= 3.12
+python --version          # 3.12.x o 3.13.x
 ```
 
 ---
@@ -115,6 +115,8 @@ which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python
 ```bash
 pip install -r requirements.txt
 ```
+
+El archivo de dependencias fija `psycopg[binary]==3.3.6`. Usa Python 3.12 o 3.13 e instala siempre desde `requirements.txt` para mantener esa versión.
 
 ### 4. Configurar variables de entorno
 
@@ -220,13 +222,14 @@ INFO:     Application startup complete.
   "database": "connected",
   "tablas": {
     "rubros_requisitos": 12,
-    "habilitaciones": 0,
-    "epok_fichas": 0
+    "habilitaciones": 216991,
+    "epok_fichas": 19608,
+    "codigo_urbanistico": 318126
   }
 }
 ```
 
-> 📌 **Nota:** los `0` en `habilitaciones` y `epok_fichas` son esperados si todavía no cargaste el dump. Ver la sección [Cómo cargar el dump](#-cómo-cargar-el-dump-de-datos).
+> El conteo de `codigo_urbanistico` aparece después de cargar ese CSV desde Data Analytics.
 
 ---
 
@@ -256,6 +259,7 @@ Devuelve 12 requisitos ordenados por etapa (`previo → habilitacion → rubro �
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| GET | `/api/v1/habilitaciones/cobertura` | Cobertura por columna, expectativas mínimas y distribución de fuentes |
 | GET | `/api/v1/habilitaciones/por-comuna/{comuna}` | Conteo total de habilitaciones en una comuna |
 | GET | `/api/v1/habilitaciones/rubros-por-comuna/{comuna}` | Top rubros habilitados en la comuna |
 | GET | `/api/v1/habilitaciones/buscar-cafeterias` | Busca cafeterías/pizzerías (con filtro opcional por comuna) |
@@ -276,6 +280,59 @@ curl "http://localhost:8000/api/v1/habilitaciones/buscar-cafeterias?comuna=3&lim
 **Ejemplo:**
 ```bash
 curl "http://localhost:8000/api/v1/catastro/001-001-008A"
+```
+
+### Mapa — comunas y parcelas con habilitaciones
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/v1/mapa/comunas` | Límites GeoJSON de las comunas |
+| GET | `/api/v1/mapa/parcelas` | Parcelas EPOK georreferenciadas con conteo e historial de rubros |
+
+El mapa actualiza las parcelas según el área visible. El backend también necesita
+acceso a `data/geo/comunas.geojson`; por defecto busca la carpeta `data` hermana
+del clon `sgi-tecba`. Si está en otra ubicación, configúrala con
+`INNOVALAB_DATA_DIR` en `backend-api/.env`.
+
+### Código Urbanístico completo por SMP
+
+La API devuelve todos los atributos de `codigo_urbanistico_limpio.csv` dentro de
+`codigo_urbanistico` al consultar una dirección/SMP. Para añadir ese dataset a
+una base ya restaurada:
+
+```bash
+sudo -u postgres psql -d innovalab -f "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/backend-api/db/schema.sql"
+sudo -u postgres env DATABASE_URL=postgresql:///innovalab "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/backend-api/.venv/bin/python" "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/src/export_postgres.py" --codigo-urbanistico
+sudo -u postgres psql -d innovalab -c "GRANT SELECT ON codigo_urbanistico TO matias17;"
+```
+
+El importador conserva todas las columnas originales como JSONB y carga las
+318.126 parcelas mediante COPY. `--codigo-urbanistico` reemplaza solo esa tabla;
+no trunca el padrón de habilitaciones ni las otras tablas.
+Ejecuta estos comandos después de guardar el esquema y el importador actualizados
+en la copia local. `--all` también vuelve a cargar (`TRUNCATE + COPY`) las otras
+fuentes y no debe usarse si solo quieres actualizar el Código Urbanístico.
+
+### `consulta` — Dirección, parcela y rubros asociados
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/consulta` | Integra checklist, padrón de habilitaciones y ficha EPOK |
+
+La consulta relaciona calle y altura exactas del padrón con su SMP. Cuando hay
+un único SMP coincidente, devuelve la ficha EPOK y las habilitaciones históricas
+de esa parcela. También se puede consultar directamente por SMP en el texto.
+La respuesta incluye cobertura general del padrón y los campos `comuna_fuente`,
+`smp_fuente` y `fecha_fuente` por registro. Los valores ausentes se mantienen
+como `null`; la cobertura indica el porcentaje disponible y las expectations
+vigentes.
+La coincidencia se basa en los registros del padrón, no solo en proximidad del
+marcador del mapa.
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/consulta" \
+  -H "Content-Type: application/json" \
+  -d '{"texto":"Quiero abrir una cafetería en Av. Corrientes 2500"}'
 ```
 
 ---

@@ -5,11 +5,17 @@ import pandas as pd
 import pytest
 
 from src.oportunidad import (
+    COLUMNAS_ARTEFACTO,
     PESOS_DEFECTO,
+    VERSION_FORMULA,
     _min_max,
+    backtest_oportunidad,
     clusterizar_comunas,
+    construir_artefacto_oportunidad,
     evaluar_k,
+    explicar_oportunidad,
     indice_oportunidad,
+    metadatos_artefacto,
     preparar_features_comuna_rubro,
     recomendar,
 )
@@ -307,3 +313,132 @@ def test_recomendar_ordena_descendente(df_sintetico):
 def test_recomendar_devuelve_vacio_si_no_hay_match(df_sintetico):
     opp = indice_oportunidad(preparar_features_comuna_rubro(df_sintetico, min_licencias=5))
     assert recomendar(opp, rubro="NO_EXISTE", min_licencias=1).empty
+
+
+# --------------------------------------------------------------------------
+# Artefacto reproducible, explicable y backtest
+# --------------------------------------------------------------------------
+
+
+def test_artefacto_agrega_columnas_de_auditoria(df_sintetico):
+    artefacto = construir_artefacto_oportunidad(
+        df_sintetico, min_licencias=5, calculado_en="2026-10-28T00:00:00Z"
+    )
+    assert tuple(artefacto.columns) == COLUMNAS_ARTEFACTO
+    assert len(artefacto) > 0
+    # una fila por (comuna, rubro), sin MultiIndex
+    assert not artefacto.duplicated(subset=["comuna", "rubro"]).any()
+    assert (artefacto["formula_version"] == VERSION_FORMULA).all()
+
+
+def test_artefacto_es_reproducible(df_sintetico):
+    kwargs = dict(min_licencias=5, calculado_en="2026-10-28T00:00:00Z")
+    a = construir_artefacto_oportunidad(df_sintetico, **kwargs)
+    b = construir_artefacto_oportunidad(df_sintetico, **kwargs)
+    assert a.equals(b)
+
+
+def test_artefacto_usa_ultimo_anio_con_masa_critica():
+    filas = [
+        {"comuna": comuna, "descripcion_rubro": "KIOSCO", "anio": 2019,
+         "tipo_tramite": "Habilitación", "superficie": 20.0}
+        for comuna in (1, 2)
+        for _ in range(120)
+    ]
+    filas += [
+        {"comuna": 1, "descripcion_rubro": "PIZZERIA", "anio": 2026,
+         "tipo_tramite": "Habilitación", "superficie": 30.0}
+        for _ in range(2)
+    ]
+    artefacto = construir_artefacto_oportunidad(pd.DataFrame(filas), min_licencias=1)
+    # 2026 tiene solo 2 registros: no debe usarse como año de referencia.
+    assert (artefacto["anio_ref"] == 2019).all()
+
+
+def test_artefacto_pesos_normalizados_y_aportes_coherentes(df_sintetico):
+    artefacto = construir_artefacto_oportunidad(
+        df_sintetico, min_licencias=5, calculado_en="2026-10-28T00:00:00Z"
+    )
+    suma_pesos = (
+        artefacto["peso_crecimiento"]
+        + artefacto["peso_baja_saturacion"]
+        + artefacto["peso_subrepresentacion"]
+    )
+    assert suma_pesos.apply(lambda v: round(v, 6)).eq(1.0).all()
+
+    suma_aportes = (
+        artefacto["aporte_crecimiento"]
+        + artefacto["aporte_baja_saturacion"]
+        + artefacto["aporte_subrepresentacion"]
+    )
+    # La nota y la suma de aportes pueden diferir solo por redondeo (±0,2).
+    assert (suma_aportes - artefacto["oportunidad"]).abs().le(0.2).all()
+
+
+def test_explicar_oportunidad_desglosa_el_score(df_sintetico):
+    artefacto = construir_artefacto_oportunidad(
+        df_sintetico, min_licencias=5, calculado_en="2026-10-28T00:00:00Z"
+    )
+    fila = artefacto.sort_values("oportunidad", ascending=False).iloc[0]
+    detalle = explicar_oportunidad(fila)
+
+    assert detalle["formula_version"] == VERSION_FORMULA
+    assert set(detalle["aportes"]) == set(PESOS_DEFECTO)
+    assert detalle["suma_aportes"] == pytest.approx(fila["oportunidad"], abs=0.2)
+    assert "Oportunidad" in detalle["resumen"]
+    assert f"n_licencias={int(fila['n_licencias'])}" in detalle["resumen"]
+
+
+def test_metadatos_artefacto_incluyen_version_y_huella(df_sintetico):
+    artefacto = construir_artefacto_oportunidad(
+        df_sintetico, min_licencias=5, calculado_en="2026-10-28T00:00:00Z"
+    )
+    meta = metadatos_artefacto(
+        artefacto,
+        fuente="test.csv",
+        fuente_sha256="abc123",
+        parametros={"min_licencias": 5},
+    )
+    assert meta["formula_version"] == VERSION_FORMULA
+    assert meta["calculado_en"].startswith("2026-10-28")
+    assert meta["pesos"] == pytest.approx(PESOS_DEFECTO)
+    assert meta["n_filas"] == len(artefacto)
+    assert meta["n_comunas"] == artefacto["comuna"].nunique()
+    assert meta["n_rubros"] == artefacto["rubro"].nunique()
+    assert meta["fuente_sha256"] == "abc123"
+
+
+def test_backtest_devuelve_metricas_y_respeta_la_ventana(df_sintetico):
+    resultado = backtest_oportunidad(
+        df_sintetico, min_licencias=5, min_registros_anio=50, top_k=3
+    )
+    assert resultado["formula_version"] == VERSION_FORMULA
+    assert resultado["anio_corte"] == 2023
+    assert resultado["anio_evaluacion"] == 2024
+    esperado = int((df_sintetico["anio"] <= 2023).sum())
+    assert resultado["n_entrenamiento"] == esperado
+    assert resultado["n_comparables"] > 0
+    assert resultado["spearman"] is None or -1 <= resultado["spearman"] <= 1
+    assert resultado["top_k_hit_rate"] is None or 0 <= resultado["top_k_hit_rate"] <= 1
+
+
+def test_backtest_rechaza_ventana_invertida(df_sintetico):
+    with pytest.raises(ValueError):
+        backtest_oportunidad(
+            df_sintetico,
+            anio_corte=2024,
+            anio_evaluacion=2023,
+            min_registros_anio=1,
+        )
+
+
+def test_backtest_necesita_dos_anios():
+    df = pd.DataFrame(
+        [
+            {"comuna": 1, "descripcion_rubro": "KIOSCO", "anio": 2024,
+             "tipo_tramite": "Habilitación", "superficie": 20.0}
+            for _ in range(5)
+        ]
+    )
+    with pytest.raises(ValueError):
+        backtest_oportunidad(df, min_registros_anio=1)

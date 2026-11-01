@@ -1,0 +1,244 @@
+{
+  "generado_en": "2026-10-29T00:56:50.163093+00:00",
+  "fuente": {
+    "padron": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/data/processed/habilitaciones_caba_clean.csv",
+    "fichas": "epok_fichas"
+  },
+  "umbrales": {
+    "min_cobertura_smp": 0.8,
+    "min_cobertura_hab": 0.8,
+    "max_edad_dias": 30,
+    "max_fallidas": 100,
+    "max_pendientes_smp": 5000
+  },
+  "cobertura": {
+    "habilitaciones": 216991,
+    "habilitaciones_con_smp": 172839,
+    "habilitaciones_sin_smp": 44152,
+    "habilitaciones_con_ficha": 100269,
+    "cobertura_habilitaciones": 0.46208828937605706,
+    "smp_padron": 37794,
+    "smp_resueltos": 19608,
+    "smp_pendientes": 18186,
+    "cobertura_smp": 0.5188125099222098
+  },
+  "fichas": {
+    "total": 19608,
+    "resueltas": 19608,
+    "fallidas": 0,
+    "en_padron": 19608,
+    "desactualizadas": 0,
+    "intentos_promedio": 0.0,
+    "ultima_actualizacion": "2026-10-14T01:46:47.695839-03:00",
+    "antiguedad_dias": 14
+  },
+  "por_anio": [
+    {
+      "anio": "2015",
+      "habilitaciones": 137463,
+      "con_smp": 136632,
+      "con_ficha": 79934,
+      "cobertura": 0.5814946567439966
+    },
+    {
+      "anio": "2019",
+      "habilitaciones": 18861,
+      "con_smp": 18659,
+      "con_ficha": 11042,
+      "cobertura": 0.5854408567944436
+    },
+    {
+      "anio": "2020",
+      "habilitaciones": 4585,
+      "con_smp": 4422,
+      "con_ficha": 2560,
+      "cobertura": 0.5583424209378408
+    },
+    {
+      "anio": "2021",
+      "habilitaciones": 26117,
+      "con_smp": 8894,
+      "con_ficha": 4303,
+      "cobertura": 0.1647585863613738
+    },
+    {
+      "anio": "2023",
+      "habilitaciones": 1616,
+      "con_smp": 1571,
+      "con_ficha": 912,
+      "cobertura": 0.5643564356435643
+    },
+    {
+      "anio": "2024",
+      "habilitaciones": 2746,
+      "con_smp": 2661,
+      "con_ficha": 1518,
+      "cobertura": 0.5528040786598689
+    },
+    {
+      "anio": "2025",
+      "habilitaciones": 25601,
+      "con_smp": 0,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "anio": "2026",
+      "habilitaciones": 2,
+      "con_smp": 0,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    }
+  ],
+  "por_comuna": [
+    {
+      "comuna": "1",
+      "habilitaciones": 25864,
+      "con_smp": 20332,
+      "con_ficha": 18533,
+      "cobertura": 0.7165558304979894
+    },
+    {
+      "comuna": "2",
+      "habilitaciones": 10796,
+      "con_smp": 8769,
+      "con_ficha": 8626,
+      "cobertura": 0.7989996294924046
+    },
+    {
+      "comuna": "3",
+      "habilitaciones": 30401,
+      "con_smp": 26106,
+      "con_ficha": 25647,
+      "cobertura": 0.8436235650143087
+    },
+    {
+      "comuna": "4",
+      "habilitaciones": 9063,
+      "con_smp": 7843,
+      "con_ficha": 7251,
+      "cobertura": 0.8000662032439589
+    },
+    {
+      "comuna": "5",
+      "habilitaciones": 9119,
+      "con_smp": 8624,
+      "con_ficha": 8499,
+      "cobertura": 0.9320100888255292
+    },
+    {
+      "comuna": "6",
+      "habilitaciones": 7607,
+      "con_smp": 7000,
+      "con_ficha": 2300,
+      "cobertura": 0.3023530958327856
+    },
+    {
+      "comuna": "7",
+      "habilitaciones": 14612,
+      "con_smp": 13635,
+      "con_ficha": 1025,
+      "cobertura": 0.07014782370654257
+    },
+    {
+      "comuna": "8",
+      "habilitaciones": 3735,
+      "con_smp": 3207,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "comuna": "9",
+      "habilitaciones": 9941,
+      "con_smp": 8510,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "comuna": "10",
+      "habilitaciones": 14574,
+      "con_smp": 13626,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "comuna": "11",
+      "habilitaciones": 10219,
+      "con_smp": 8796,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "comuna": "12",
+      "habilitaciones": 9135,
+      "con_smp": 8217,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    },
+    {
+      "comuna": "13",
+      "habilitaciones": 13117,
+      "con_smp": 11916,
+      "con_ficha": 10488,
+      "cobertura": 0.7995730731112297
+    },
+    {
+      "comuna": "14",
+      "habilitaciones": 17212,
+      "con_smp": 13735,
+      "con_ficha": 13160,
+      "cobertura": 0.7645828491749942
+    },
+    {
+      "comuna": "15",
+      "habilitaciones": 13868,
+      "con_smp": 12123,
+      "con_ficha": 4740,
+      "cobertura": 0.3417940582636285
+    },
+    {
+      "comuna": "sin_dato",
+      "habilitaciones": 17728,
+      "con_smp": 400,
+      "con_ficha": 0,
+      "cobertura": 0.0
+    }
+  ],
+  "alertas": [
+    {
+      "codigo": "COBERTURA_SMP_BAJA",
+      "nivel": "advertencia",
+      "mensaje": "Cobertura de SMP resueltos 51.9% por debajo del objetivo 80%.",
+      "valor": 0.5188,
+      "umbral": 0.8
+    },
+    {
+      "codigo": "COBERTURA_HABILITACIONES_BAJA",
+      "nivel": "advertencia",
+      "mensaje": "Cobertura de habilitaciones con ficha 46.2% por debajo del objetivo 80%.",
+      "valor": 0.4621,
+      "umbral": 0.8
+    },
+    {
+      "codigo": "COLA_PENDIENTE",
+      "nivel": "advertencia",
+      "mensaje": "18,186 SMP pendientes superan el máximo de 5,000.",
+      "valor": 18186,
+      "umbral": 5000
+    },
+    {
+      "codigo": "COMUNAS_SIN_COBERTURA",
+      "nivel": "advertencia",
+      "mensaje": "Comunas con al menos 100 habilitaciones y 0% de cobertura: 8, 9, 10, 11, 12, sin_dato",
+      "valor": 6,
+      "umbral": 0
+    },
+    {
+      "codigo": "ANIOS_SIN_COBERTURA",
+      "nivel": "advertencia",
+      "mensaje": "Años con al menos 100 habilitaciones y 0% de cobertura: 2025",
+      "valor": 1,
+      "umbral": 0
+    }
+  ]
+}

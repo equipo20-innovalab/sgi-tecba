@@ -1,429 +1,479 @@
-# Innovalab — Habilitaciones de comercios de la CABA
+# Innovalab — datos de habilitaciones comerciales de CABA
 
-Pipeline de datos que **carga, limpia y georreferencia** el padrón de habilitaciones
-comerciales de la Ciudad Autónoma de Buenos Aires (exports del portal
-[data.buenosaires.gob.ar](https://data.buenosaires.gob.ar), 2015-2026), listo para
-consumir desde un backend o un MVP de análisis.
+Pipeline reproducible para **integrar, limpiar, validar y publicar** datos de habilitaciones comerciales de la Ciudad de Buenos Aires. Combina el padrón histórico del GCBA, geografía oficial, el Código Urbanístico, fichas catastrales EPOK y un índice de oportunidad por comuna y rubro.
 
-## Estructura del proyecto
+> **Alcance:** este directorio es la capa de datos. No incluye backend, frontend ni endpoints. Los resultados son descriptivos y orientativos: no constituyen permisos de uso, habilitaciones comerciales ni asesoramiento normativo.
 
-```
-inovalab_2/
-├── data/
-│   ├── raw/                  9 CSV crudos del GCBA
-│   ├── geo/                  capas oficiales: comunas.geojson, manzanas, callejero
-│   └── processed/            salida del pipeline: habilitaciones_caba_clean.csv
-├── db/
-│   ├── seed/
-│   │   └── rubros_requisitos.csv   checklist para abrir un local: requisitos por rubro/etapa
-│   └── schema.sql                  DDL de PostgreSQL (rubros_requisitos, habilitaciones, epok_fichas)
-├── src/
-│   ├── data_loader.py        carga con pathlib (rutas relativas) + detección de separador
-│   ├── cleaning.py           armonización de esquemas, filtros, imputaciones y dtypes
-│   ├── geografia.py          asignación de comuna (catastro + callejero, join oficial)
-│   ├── estadistica.py        cuartiles, outliers (IQR), Gini/Lorenz y χ²
-│   ├── modelado.py           datasets de modelos (regresión y clasificación)
-│   ├── oportunidad.py        clustering de comunas + índice de oportunidad 0-100
-│   ├── apis_gcba.py          clientes de APIs públicas: EPOK, USIG, BA Data
-│   ├── limpiar_smp.py        normaliza SMP malformados del padrón (rellena ceros)
-│   ├── enriquecer_epok.py    enriquece el padrón con la ficha catastral de EPOK
-│   └── export_postgres.py    carga datos hacia PostgreSQL (rubros_requisitos + habilitaciones)
-├── notebook/
-│   ├── 01_exploracion_y_limpieza.ipynb    orquestador: EDA + auditoría + gráficos + export
-│   ├── 02_modelos.ipynb                   regresión (volumen) y clasificación (comuna)
-│   └── 03_clustering_oportunidad.ipynb    KMeans/DBSCAN + índice de oportunidad
-├── tests/
-│   ├── test_data.py           data contract del CSV procesado
-│   ├── test_estadistica.py    tests unitarios de cuartiles/Gini (valores conocidos)
-│   ├── test_oportunidad.py    clustering, índice y recomendaciones
-│   └── test_apis_gcba.py      contratos de los clientes de APIs GCBA
-├── requirements.txt
-└── README.md
-```
+## Estado actual
 
-## Puesta en marcha
+| Indicador | Valor |
+|---|---|
+| Padrón procesado | **216.991 registros · 22 columnas** |
+| Cobertura de comuna / SMP / fecha | **91,8% / 79,6% / 71,2%** |
+| Código Urbanístico limpio | **318.126 parcelas** |
+| Panel urbanístico | **335.569 SMP · 44 columnas** |
+| Habilitaciones cruzadas con CU | **139.643 (64,3%)** |
+| Fichas EPOK | **19.608 · 51,9% SMP · 46,2% habilitaciones** |
+| Índice de oportunidad | **1.121 filas · 15 comunas · 80 rubros** |
+| Fórmula del índice | **`1.0.0`** · pesos 40/40/20 · `anio_ref=2025` |
+| Reglas de compatibilidad | **`1.0.0`** · 12 reglas versionadas |
+| Fixture de demo | **`1.0.0`** · 150 habilitaciones · 30 SMP · 30 fichas EPOK |
+| Pruebas | **120** |
+
+Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json), [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json) y [`data/processed/epok_cobertura.json`](data/processed/epok_cobertura.json).
+
+## Inicio rápido
+
+Desde la raíz del repositorio `sgi-tecba`:
 
 ```bash
-cd inovalab_2
+cd data_analytics/innovalab
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Ejecutar el pipeline completo (notebook como orquestador):
+Construir y validar sin base de datos:
 
 ```bash
-jupyter nbconvert --to notebook --execute --inplace notebook/01_exploracion_y_limpieza.ipynb
+python -m src.run_pipeline --build-only
 ```
 
-o bien abrirlo interactivo con `jupyter notebook notebook/01_exploracion_y_limpieza.ipynb`.
-Las capas geográficas de `data/geo/` se descargan solas la primera vez (~16 MB).
-
-## El pipeline
-
-| Paso | Módulo | Qué hace |
-|------|--------|----------|
-| 1 | `src/data_loader.py` | Lee `data/raw/*.csv` (`;`/latin1 con fallback a `,`/utf-8-sig), excluye el archivo no tabular 2022 y agrega `origen`/`anio` |
-| 2 | notebook (EDA) | Auditoría de shape, dtypes, nulos y muestras |
-| 3 | `src/cleaning.py` | Normaliza nombres de columna, fusiona columnas repetidas (snake_case ↔ CamelCase), mapea el esquema moderno 2025/2026 al común, filtra, imputa, tipa y construye la clave catastral `smp` |
-| 4 | `src/geografia.py` | Asigna `comuna` con capas oficiales del GCBA (estrategia híbrida abajo) |
-| 5 | notebook | Métricas de control |
-| 6 | notebook (gráfico) | EDA visual: series temporales, distribuciones, rubros, nulos y coropleta de comunas |
-| 7 | `src/estadistica.py` + notebook | Cuartiles/IQR/outliers de `superficie` y concentración (Gini + Lorenz) por comuna, rubro y trámite |
-| 8 | `src/estadistica.py` + notebook | Asociación χ² de independencia y V de Cramér (comuna × rubro, trámite, año) |
-| 9 | notebook | Export a `data/processed/` |
-
-## Modelos (notebook 02)
-
-`notebook/02_modelos.ipynb` entrena sobre el CSV procesado (lógica en
-`src/modelado.py`):
-
-* **Regresión** del volumen por (comuna, año): R² **0,41** con split aleatorio.
-  Con split temporal (entrenar ≤ 2023, probar 2024-2026) el R² es **negativo**:
-  `anio` es el año del archivo fuente, no una serie temporal → no sirve para
-  pronosticar.
-* **Clasificación** de la comuna desde el perfil de actividad (superficie, año,
-  trámite y rubro; sin `seccion`/`manzana`/`calles` para no filtrar la regla de
-  geocodificación): el mejor modelo llega a **17,7%** de accuracy vs **15,3%** del
-  baseline. Confirma la V de Cramér (~0,08): la actividad está repartida pareja
-  entre comunas y el rubro no la predice.
-
-## Clustering e índice de oportunidad (notebook 03)
-
-`notebook/03_clustering_oportunidad.ipynb` (lógica en `src/oportunidad.py`)
-responde "dónde y qué conviene abrir" sin usar `anio` como serie temporal:
-
-* **Selección de k**: silhouette de KMeans para k=2..8 → **k=5 óptimo (0,38)**.
-* **Clustering de comunas** (KMeans y DBSCAN) con features de perfil:
-  `n_licencias`, `rubros_distintos`, `superficie_promedio`, `tasa_nuevas`,
-  `diversidad_top10`.
-* **Índice de oportunidad 0-100** por (comuna × rubro) con tres componentes
-  ponderados: **crecimiento** (cuota relativa del rubro en el año, no conteo
-  crudo — invariante al sesgo de cobertura de 2015), **baja saturación**
-  (rubro vs. media de la comuna) y **subrepresentación** (rubro vs. media de
-  la ciudad). Pesos por defecto: 40% / 40% / 20%.
-* **Recomendaciones** ordenadas por nota, filtrables por comuna o rubro
-  (búsqueda parcial case-insensitive). Ejemplo: comuna 4 / artículos
-  personales con crecimiento +27% → nota 96,9.
-
-Limitación: `anio` es el año del archivo fuente, no una serie temporal; el
-crecimiento es **tendencia entre el primer y el último año disponible**, no un
-pronóstico. Faltan 2016-2018 y 2022 en el padrón.
-
-## APIs públicas del GCBA (`src/apis_gcba.py`)
-
-Clientes de las APIs oficiales del GCBA, con **contratos verificados en vivo**
-(oct-2026). Todos degradan con gracia (timeout + retry + `None`) para no tumbar
-el pipeline si una API del Estado se cae.
-
-| API | Uso | Estado real |
-|-----|-----|-------------|
-| **EPOK Catastro** (`/catastro/parcela/?smp=…`) | ficha del inmueble por SMP: **m²** totales/cubiertos, centroide, dirección, partida, puertas | ✅ funciona (JSON) |
-| **BA Data** (CKAN `…/api/3/action/…`) | buscar/detalle de datasets (`package_search`, `package_show`); fuente de los CSV | ✅ funciona |
-| **USIG normalizar** (`/normalizar/?direccion=…`) | normaliza/geocodifica direcciones | ⚠️ intermitente: a veces responde en <1s, a veces timeout >45s |
-
-Uso rápido:
-
-```python
-from src.apis_gcba import consultar_epok_por_smp, metros_cuadrados, buscar_datasets_badata
-
-ficha = consultar_epok_por_smp("01-001-001A")     # -> dict con la ficha catastral
-metros_cuadrados(ficha)                             # -> {'total': 1088.0, 'cubierta': 6735.0}
-buscar_datasets_badata("habilitaciones")            # -> lista de datasets de BA Data
-```
-
-> El pipeline sigue georreferenciando con callejero/catastro (91,8%) y **no
-> depende de USIG en vivo**: si USIG no responde, se ignora. Ver `PRODUCTO.md`
-> para el alcance por fases de la plataforma.
-
-## Datos de referencia para el backend (`rubros_requisitos`)
-
-Responde la pregunta **"¿qué necesito para abrir un local de X?"**: un
-**checklist ordenado por etapa** con todos los requisitos (previos,
-habilitación, propios del rubro, tributarios y operativos), la documentación de
-cada uno, el organismo y el link oficial. Es una tabla **curada manualmente**
-(fuente de verdad: el CSV en `db/seed/`), pensada para que el backend la
-consulte con un lookup SQL simple.
-
-| Columna | Descripción |
-|---------|-------------|
-| `rubro` | `Cafetería`, o `General` si el requisito aplica a cualquier local |
-| `tramite` | Requisito/trámite (ej. `Registro de Bromatología`) |
-| `etapa` | `previo` → `habilitacion` → `rubro` → `tributario` → `operativo` |
-| `orden` | Posición dentro de la etapa (para presentarlo en orden) |
-| `obligatorio` | `Obligatorio`, `Opcional` o `Condicional` |
-| `aplica_cuando` | Condición si es `Condicional` (NULL si no) |
-| `documentacion_requerida` | Documentos que lleva ese requisito |
-| `organismo` | Organismo que lo otorga (ej. `AGC`) |
-| `link_oficial` | URL del trámite oficial |
-
-**Cobertura actual:** 12 requisitos (7 `General` + 5 de `Cafetería`), que cubren
-el recorrido completo de abrir un local gastronómico. Se extiende agregando filas
-al CSV (`db/seed/rubros_requisitos.csv`); el upsert evita duplicados.
-
-### Cargar los datos en PostgreSQL
+Construir, validar y actualizar PostgreSQL en un solo comando:
 
 ```bash
-# 1. Crear las tablas
-psql "$DATABASE_URL" -f db/schema.sql
-
-# 2. Cargar el CSV (idempotente: usa UPSERT sobre rubro+tramite)
-python src/export_postgres.py
-
-# Opcional: validar sin escribir
-python src/export_postgres.py --dry-run
+export DATABASE_URL="postgresql://usuario:clave@host:5432/innovalab"
+python -m src.run_pipeline
 ```
 
-Requiere `psycopg` (ya en `requirements.txt`) y la variable `DATABASE_URL`.
-
-### Cómo se consulta (SQL)
-
-El backend conecta con el driver `pg` y una única variable `DATABASE_URL`
-(vive en `backend/.env`, que está en `.gitignore` — la clave no se commitea):
+Comprobar todo el flujo sin escribir en disco ni en la base:
 
 ```bash
-# backend/.env
-DATABASE_URL=postgresql://usuario:clave@localhost:5432/innovalab
+python -m src.run_pipeline --dry-run
 ```
 
-Consulta de ejemplo (el checklist de un rubro, sumando los requisitos `General`):
-
-```sql
-SELECT tramite, etapa, obligatorio, documentacion_requerida
-  FROM rubros_requisitos
- WHERE rubro IN ('General', 'Cafetería')
- ORDER BY etapa, orden;
-```
-
-## Qué preguntas responde esta base de datos
-
-Todo lo que sigue está **cargado y verificado en PostgreSQL**: son las preguntas
-de producto que la base contesta hoy, con la consulta SQL que las resuelve.
-
-> **📌 Handoff a Backend (ticket #11 — "API's de integración territorial y
-> Trámites de habilitaciones comerciales"):** esta base quedó **lista para que
-> el equipo de backend la conecte** y exponga las preguntas de abajo como
-> endpoints. El trabajo del lado datos (integración de APIs GCBA + dataset
-> histórico, limpieza de SMP, enriquecimiento catastral y checklist de
-> requisitos) está completo. La `DATABASE_URL` se pasa por canal seguro (la
-> clave **no** va en el repo). **Alcance piloto (MVP):** cubre el caso
-> **cafetería / pizzería**; aún no es la totalidad de la ciudad.
-
-### 1. ¿Qué necesito para abrir un local de X? (checklist)
-**Tabla:** `rubros_requisitos` · **12 requisitos** (7 `General` + 5 de `Cafetería`),
-ordenados por etapa, con documentación, organismo y link oficial.
-
-```sql
-SELECT etapa, orden, tramite, obligatorio, aplica_cuando,
-       documentacion_requerida, organismo, link_oficial
-  FROM rubros_requisitos
- WHERE rubro IN ('General', 'Cafetería')   -- 'Cafetería' = el rubro consultado
- ORDER BY etapa, orden;
-```
-*Ejemplo de salida:* `[previo] Documentación personal del titular (Obligatorio)`,
-`[rubro] Registro de Bromatología (Obligatorio)`, `[rubro] R.I.F.C.I. (Condicional: si hay instalaciones contra incendios)`…
-
-### 2. ¿Cuántas habilitaciones hay en la comuna X?
-**Tabla:** `habilitaciones` · **216.991 filas** del padrón de la CABA.
-
-```sql
-SELECT count(*) FROM habilitaciones WHERE comuna = 3;
--- o el detalle, filtrando por rubro / año:
-SELECT solicitud, descripcion_rubro, superficie, smp, calles, anio
-  FROM habilitaciones
- WHERE comuna = 3
-   AND unaccent(descripcion_rubro) ILIKE unaccent('%cafetería%')
- ORDER BY anio DESC
- LIMIT 50;
-```
-
-### 3. ¿Qué rubros se habilitan en una zona o año?
-**Tabla:** `habilitaciones` · agrupaciones por comuna, rubro o año.
-
-```sql
-SELECT comuna, count(*) AS habilitaciones
-  FROM habilitaciones
- GROUP BY comuna ORDER BY habilitaciones DESC;
-```
-
-### 4. ¿Cuántos m² tiene el local de la calle Y? (ficha catastral)
-**Tablas:** `habilitaciones` + `epok_fichas` (JOIN por `smp`) · **datos oficiales
-de EPOK**: m² reales, coordenadas, pisos. Rellena los casos en que el padrón trae
-`superficie = 0`.
-
-```sql
-SELECT h.descripcion_rubro, h.calles,
-       h.superficie     AS m2_en_padron,
-       e.superficie_total AS m2_reales,
-       e.lat, e.lng, e.pisos_sobre_rasante
-  FROM habilitaciones h
-  LEFT JOIN epok_fichas e ON h.smp = e.smp
- WHERE h.smp = '001-001-008A';
--- -> m2_en_padron = 0, pero m2_reales = 495 (dato de EPOK)
-```
-
-### 🗺️ Enriquecimiento catastral (EPOK → `epok_fichas`)
-
-Complementa el padrón con la ficha catastral oficial del GCBA por SMP: **coordenadas
-(mapa), superficies reales, pisos, unidades y frente/fondo**. Resuelve el caso en
-que el dataset trae `superficie = 0` (sin dato) pero el SMP sí existe en catastro.
-
-```bash
-# 1. Limpiar SMP malformados (rellena ceros; conserva original en smp_original)
-python src/limpiar_smp.py            # --dry-run para ver el alcance
-
-# 2. Enriquecer con EPOK (reanudable; salta SMP ya cargados)
-python src/enriquecer_epok.py --probar      # prueba con 3 SMP
-python src/enriquecer_epok.py --limite 500  # lote de prueba
-python src/enriquecer_epok.py               # todo lo pendiente (~37k SMP)
-```
-
-> La limpieza **recupera ~92%** de los SMP malformados del dataset origen. Aun así,
-> una parte de los SMP (históricos) ya no existe en el catastro actual y EPOK no los
-> resuelve: son filas sin ficha, no un error del proceso.
-
-### 🌐 APIs públicas del GCBA (clientes Python en `src/apis_gcba.py`)
-
-Clientes verificados en vivo (oct-2026), con timeout/retry y degradación a
-`None` si una API del Estado se cae. Son del **lado Python** (pipeline):
-
-| API | Qué responde | Uso en el proyecto |
-|-----|--------------|--------------------|
-| **EPOK Catastro** | ficha del inmueble por SMP: **m²** totales/cubiertos, centroide, dirección, pisos | ✅ materializada en `epok_fichas` (ver sección de enriquecimiento) |
-| **BA Data (CKAN)** | catálogo de datasets del GCBA (incluye el padrón de habilitaciones) | metadatos / descargas de datos abiertos |
-| **USIG normalizar** | normaliza/geocodifica direcciones (intermitente) | convertir una dirección a coordenadas |
-
-> EPOK ya quedó **materializada en la BD** (`epok_fichas`, cargada por
-> `enriquecer_epok.py`): el backend la consulta como una tabla común, sin llamar
-> a la API del GCBA en vivo. BA Data y USIG siguen siendo clientes Python.
-
-> El padrón de habilitaciones **no está en el repo** (pesa y `data/` está en
-> `.gitignore`): se genera corriendo el pipeline y luego se carga a PostgreSQL
-> con `python src/export_postgres.py --habilitaciones`.
-
-### Cómo verificar que los datos están cargados
-
-```bash
-# Backend: crear tablas + cargar checklist y padrón
-psql "$DATABASE_URL" -f db/schema.sql
-python src/export_postgres.py            # rubros_requisitos
-python src/export_postgres.py --habilitaciones
-
-# Consultas de control (deben devolver filas)
-psql "$DATABASE_URL" -c "SELECT count(*) FROM rubros_requisitos;"   # 12
-psql "$DATABASE_URL" -c "SELECT count(*) FROM habilitaciones;"       # 216991
-psql "$DATABASE_URL" -c "SELECT count(*) FROM epok_fichas;"          # crece
-```
-
-## Tests (data contract)
+Correr las pruebas:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-54 tests en total. **Data contract (12):** esquema completo, volumen mínimo
-(≥ 200k filas), `comuna` ∈ 1..15 con cobertura ≥ 90%, `comuna_fuente` con valores
-conocidos, `anio` ∈ 2015..2026, superficie no negativa, techos de nulos por
-columna, sin duplicados exactos, fechas parseables ≥ 70% y ≥ 7 archivos de origen.
-**Estadística (9):** Gini y Lorenz con valores conocidos, cuartiles y detección de
-outliers, χ² y V de Cramér (independencia/asociación perfecta) y agrupación de la
-cola. **Oportunidad (22):** normalización, features comuna×rubro (saturación,
-crecimiento por cuota), índice 0-100, clustering KMeans/DBSCAN y recomendaciones.
-**APIs GCBA (11):** clientes de EPOK/USIG/BA Data con mocks (timeouts, parseo,
-degradación). Si uno falla, el pipeline rompió una suposición que asumen el EDA,
-los modelos, los exports para RAG y el asistente de oportunidades.
+## Demo sin Git LFS
 
-### Estrategia de `comuna` (híbrida, con trazabilidad)
+El dump completo pesa ~89 MB, se versiona con Git LFS y depende de PostgreSQL
+18. Para demos, onboarding y CI hay un camino corto que no necesita nada de eso:
+un fixture pequeño y sanitizado servido por `docker compose`.
 
-La columna `comuna_fuente` indica qué regla aplicó en cada fila:
+```bash
+cd data_analytics/innovalab
+docker compose up -d --wait
+psql "postgresql://innovalab:innovalab_demo@localhost:55432/innovalab" \
+     -v ON_ERROR_STOP=1 -f db/demo/verificar_demo.sql
+```
 
-1. **`archivo`** — `comuna` ya informada en los exports modernos 2025/2026;
-2. **`catastro`** — par `(sección, manzana)` contra `manzanas_catastrales.csv`
-   (polígono → punto representativo → punto-en-polígono con `comunas.geojson`);
-3. **`callejero`** — nombre oficial de la calle contra `callejero.csv`
-   (usa el lado par/impar según la altura de la dirección cuando está disponible);
-4. **`callejero_fuzzy`** — coincidencia aproximada (similitud ≥ 0.90 con `difflib`).
+Esto levanta **PostgreSQL 18** y carga el esquema más `db/demo/`: **150
+habilitaciones**, **30 SMP**, **30 fichas EPOK** y los 12 requisitos de rubros.
+El fixture (`db/demo/`, versión **`1.0.0`**, semilla `20261028`) se versiona en
+Git normal y es **pseudonimizado**, no anonimizado: no sirve para inferir
+negocios reales. Se regenera con `python scripts/generar_demo.py`.
 
-## Auditoría: ¿dónde se fueron las ~318.678 filas?
+Para restaurar el dump real con un destino de otra versión:
 
-La versión anterior del notebook concatenaba **510.085 filas** y exportaba
-**191.407**. La diferencia se explica al 100% así:
+```bash
+scripts/restore_dump.sh --info                     # versiones y compatibilidad
+scripts/restore_dump.sh --dsn "$DATABASE_URL"      # filtros + restore + conteos
+```
 
-| Causa | Filas | % |
-|-------|------:|---:|
-| Archivos **2025 y 2026** eliminados por `dropna(subset=[solicitud, numero_expediente])`: traen un esquema distinto (`razon_social`, `domicilio`, `comuna`…) sin esas columnas clave | 290.932 | 91,3% |
-| **Duplicados exactos** entre exports anuales (superposición con el maestro 2015-2018): 2019: 4.342 · 2020: 8.353 · 2021: 5.713 · 2023: 3.447 · 2024: 5.891 | 27.746 | 8,7% |
-| **Total** | **318.678** | **100%** |
+Detalle de rutas, versiones, sanitización, `docker compose`, restauración y CI:
+[`docs/datos_demo.md`](docs/datos_demo.md).
 
-Dato irónico: los archivos 2025/2026 eran los **únicos que traían `comuna`**, por lo
-que el CSV limpio anterior tenía el 100% de `comuna` vacío y dependía de un mapeo
-manual de 8 calles.
+## Estructura
 
-**Qué cambia hoy** (contabilidad en vivo en el notebook):
+```text
+data_analytics/innovalab/
+├── src/
+│   ├── data_loader.py          # Lectura de CSV crudos y rutas del proyecto
+│   ├── cleaning.py             # Normalización, deduplicación y unificación de esquemas
+│   ├── geografia.py            # Asignación trazable de comuna (catastro, callejero, fuzzy)
+│   ├── codigo_urbanistico.py   # Limpieza del Código Urbanístico
+│   ├── urbanismo.py            # SMP, reglas, panel y cobertura urbanística
+│   ├── data_validation.py      # Contrato de calidad y reporte por columna
+│   ├── oportunidad.py          # Índice, artefactos y backtest
+│   ├── estadistica.py          # Distribuciones, Gini/Lorenz, asociación
+│   ├── modelado.py             # Regresión y clasificación exploratorias
+│   ├── apis_gcba.py            # Clientes EPOK, USIG y BA Data
+│   ├── limpiar_smp.py          # Normalización de claves catastrales
+│   ├── enriquecer_epok.py      # Enriquecimiento incremental, reintentos y alertas
+│   ├── epok_cobertura.py       # Cobertura, dashboard HTML y alertas EPOK
+│   ├── export_postgres.py      # Artefactos + carga a PostgreSQL
+│   └── run_pipeline.py         # Orquestación build → validate → load
+├── data/
+│   ├── raw/                    # CSV originales del GCBA + codigo-urbanistico.csv
+│   ├── processed/              # Padrón, CU limpio y artefactos derivados
+│   └── geo/                    # callejero.csv, comunas.geojson, manzanas_catastrales.csv
+├── db/
+│   ├── schema.sql              # Tablas, índices y vistas
+│   ├── seed/                   # Requisitos de rubros y reglas de compatibilidad
+│   ├── demo/                   # Fixture 1.0.0 sanitizado (Git normal, sin LFS)
+│   │   ├── habilitaciones_demo.csv
+│   │   ├── epok_fichas_demo.csv
+│   │   ├── FIXTURE.json        # Versión, semilla y SHA-256
+│   │   ├── init_demo.sql       # Carga del fixture
+│   │   └── verificar_demo.sql  # Conteos y cruce por SMP
+│   └── innovalab_dump.sql      # Dump de referencia (Git LFS)
+├── scripts/
+│   ├── generar_demo.py         # Genera el fixture de forma determinista
+│   └── restore_dump.sh         # Restore del dump con filtros por versión
+├── docker-compose.yml          # PostgreSQL 18 + esquema + fixture
+├── docs/                       # Fórmula del índice, urbanismo y datos de demo
+├── notebook/                   # Exploración, modelos, clustering y CU
+└── tests/                      # 120 pruebas
+```
 
-| Archivo | Crudas | Limpias | Descartadas | % retenido |
-|---------|-------:|--------:|------------:|-----------:|
-| habilitaciones-2015-a-2018.csv | 137.463 | 137.463 | 0 | 100,0% |
-| habilitaciones-2019.csv | 23.203 | 18.861 | 4.342 | 81,3% |
-| habilitaciones-aprobadas2020.csv | 12.938 | 4.585 | 8.353 | 35,4% |
-| habilitaciones-aprobadas2021.csv | 31.829 | 26.117 | 5.712 | 82,1% |
-| habilitaciones-aprobadas2023.csv | 5.063 | 1.616 | 3.447 | 31,9% |
-| habilitaciones-aprobadas2024.csv | 8.637 | 2.746 | 5.891 | 31,8% |
-| habilitaciones-aprobadas2025.csv | 145.457 | 25.601 | 119.856 | 17,6% |
-| habilitaciones-aprobadas2026.csv | 145.475 | 2 | 145.473 | 0,0% |
-| **Total** | **510.065** | **216.991** | **293.074** | **42,5%** |
+Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. El fixture de `db/demo/` es la excepción: son pocos KB y se versiona en Git normal para que la demo funcione sin LFS. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
 
-Notas:
+## Pipeline de datos
 
-* **2025/2026 ahora se integran** (antes se perdían enteros): son registros
-  modernos sin `solicitud` ni `fecha_habilitacion`, con un renglón por
-  observación/comentario. Como el esquema común no incluye `comentarios`, los
-  renglones repetidos del mismo local colapsan (145k → ~25,6k únicos).
-* Los archivos 2025 y 2026 son snapshots casi idénticos (solo 2 registros
-  nuevos en 2026): el dedup entre ambos evita duplicar ~25 mil registros.
-* `habilitaciones-aprobadas2022.csv` se excluye: export manual de 20 filas
-  tipo `Solicitud;All`, sin estructura tabular.
-* El resto de descartes es la superposición normal entre el maestro
-  2015-2018 y los dumps anuales 2019-2024 (duplicados exactos).
+`python -m src.run_pipeline` ejecuta tres etapas y se detiene si alguna falla:
 
-## Resultados del pipeline
+1. **Build** — carga los CSV crudos, normaliza y deduplica, asigna comuna y reconstruye el Código Urbanístico limpio.
+2. **Validate** — aplica el contrato de calidad al padrón y al CU. Cada CSV se reemplaza de forma atómica solo después de superar las validaciones.
+3. **Load** — ejecuta `src/export_postgres.py --all`: requisitos, habilitaciones, Código Urbanístico, panel urbanístico e índice de oportunidad.
 
-* **510.065 filas crudas** (8 archivos) → **216.991 filas × 20 columnas**.
-* **Comuna asignada al 91,8%**: catastro 79,5% · archivo moderno 11,6% ·
-  callejero 0,7% · sin dato 8,2% (17.728 filas con dirección/clave catastral
-  corrupta en origen: calles numéricas tipo `"1"`, secciones inexistentes, etc.).
-* **Clave catastral `smp`** (`seccion-manzana-parcela`) en el 79,7% de las filas,
-  lista para cruzar con las APIs del Catastro del GCBA.
-* **154.473 trámites con fecha de habilitación** (71,2% del total; los
-  archivos modernos no traen fecha por diseño del export). El notebook expone
-  ese subconjunto como **`df_habilitados`** para análisis de tiempos de gestión
-  y evolución temporal.
-* Duración del pipeline completo: **~20 segundos**.
+| Comando | Construye | Valida | Escribe artefactos | Escribe en PostgreSQL |
+|---|---:|---:|---:|---:|
+| `python -m src.run_pipeline --build-only` | Sí | Sí | Sí | No |
+| `python -m src.run_pipeline --dry-run` | Sí | Sí | Sí | No (prueba el formato) |
+| `python -m src.run_pipeline` | Sí | Sí | Sí | Sí |
 
-## Esquema de salida (`data/processed/habilitaciones_caba_clean.csv`)
+### Cargas selectivas
 
-| Columna | Tipo | Observación |
-|---------|------|-------------|
-| `solicitud` | Int64 | NaN en registros modernos 2025/2026 |
-| `tipo_tramite`, `tipo_expediente`, `subtipo_expediente` | str | imputado `"Sin Especificar"` si falta |
-| `fecha_habilitacion` | datetime | NaN en registros modernos |
-| `numero_expediente`, `partida_matriz` | str/object | |
-| `codigo_rubro` | Float64 | el padrón trae ~7,5k códigos con decimales (ej: 1.4): se conservan |
-| `descripcion_rubro` | str | en modernos viene del campo `rubro` |
-| `superficie` | float | 0 = sin dato |
-| `seccion`, `manzana`, `parcela` | str | clave catastral |
-| `smp` | str | clave unificada `seccion-manzana-parcela` (79,7% válida; NA si algún componente es inválido) |
-| `calles` | str | en modernos viene de `domicilio` |
-| `comuna` | Int64 | ver estrategia híbrida |
-| `comuna_fuente` | str | trazabilidad: archivo / catastro / callejero / callejero_fuzzy / sin_dato |
-| `razon_social` | str | en clásicos viene de `titulares` |
-| `origen` | str | archivo fuente |
-| `anio` | int | año detectado en el nombre del archivo |
+```bash
+python src/export_postgres.py --rubros
+python src/export_postgres.py --habilitaciones
+python src/export_postgres.py --codigo-urbanistico
+python src/export_postgres.py --oportunidad --min-licencias 5 --top-rubros 80
+python src/export_postgres.py --all
+```
 
-## Limitaciones conocidas
+Opciones útiles: `--reglas <ruta.json>` cambia el archivo de reglas, `--sin-epok` omite las fichas catastrales al construir el panel, `--dry-run` valida sin escribir.
 
-* 8,2% de las filas sin `comuna`: son registros con datos corruptos en origen
-  (no hay con qué georreferenciarlos sin geocodificación externa).
-* La calle `GRILL` (498 filas) no figura en el callejero oficial del GCBA.
-* Los registros modernos 2025/2026 no traen `fecha_habilitacion` ni `solicitud`
-  (el export solo indica que fueron aprobados).
+## Fuentes y artefactos
+
+### Entradas (`data/raw/`)
+
+- `habilitaciones-2015-a-2018.csv`, `habilitaciones-2019.csv`, `habilitaciones-2020`, `2021`, `2023`, `2024`, `2025` y `2026` según la exportación vigente del GCBA.
+- `habilitaciones-2022` existe pero **no tiene estructura tabular**: se excluye.
+- `codigo-urbanistico.csv` (~50 MB).
+- Geografía en `data/geo/`: `callejero.csv`, `comunas.geojson` y `manzanas_catastrales.csv`.
+
+### Salidas (`data/processed/`)
+
+| Archivo | Contenido |
+|---|---|
+| `habilitaciones_caba_clean.csv` | Padrón limpio, 216.991 × 22 |
+| `codigo_urbanistico_limpio.csv` | Código Urbanístico normalizado, 318.126 parcelas |
+| `reporte_calidad.json` | Cobertura por columna, fuentes y totales |
+| `indice_oportunidad.csv` | Score por `(comuna, rubro)` con componentes y explicación |
+| `indice_oportunidad_meta.json` | Versión, pesos, parámetros y SHA-256 del CSV de origen |
+| `urbanismo_smp.csv` | Panel por SMP, 335.569 × 44 |
+| `urbanismo_cobertura.json` | Métricas, distribuciones, huellas y limitaciones |
+| `epok_cobertura.json` | Cobertura EPOK, cortes por año/comuna y alertas |
+| `epok_dashboard.html` | Dashboard autocontenido de cobertura EPOK |
+
+## Contrato de calidad
+
+`src/data_validation.py` exige, entre otras condiciones:
+
+| Control | Umbral |
+|---|---|
+| Filas mínimas | 200.000 |
+| Comuna | ≥ 90%, valores 1..15 |
+| SMP no nulo | ≥ 75% |
+| Fecha de habilitación válida | ≥ 70% |
+| Calles | ≥ 95% |
+| `codigo_rubro` | ≥ 65% |
+| `razon_social` | ≥ 10% |
+| `origen`, `anio`, `smp_fuente`, `fecha_fuente`, `comuna_fuente` | 100% |
+| Años | 2015..2026, sin nulos |
+| Duplicados completos | 0 |
+| Archivos fuente | ≥ 7 |
+
+Cobertura medida en la última corrida: comuna **91,83%**, SMP **79,6%**, fecha **71,19%**, calles **99,12%**, `codigo_rubro` **69,6%**, `razon_social` **11,8%**, `partida_matriz` **99,23%** y `superficie` **21,9%**.
+
+Fuentes de trazabilidad:
+
+- `comuna_fuente`: `catastro` 172.527 · `archivo` 25.249 · `sin_dato` 17.728 · `callejero` 1.484 · `callejero_fuzzy` 3.
+- `smp_fuente`: `seccion_manzana_parcela` 172.839 · `sin_dato` 44.152.
+- `fecha_fuente`: `archivo` 154.473 · `sin_dato` 62.518.
+
+## Código Urbanístico
+
+`src/codigo_urbanistico.py` procesa `data/raw/codigo-urbanistico.csv` y genera `data/processed/codigo_urbanistico_limpio.csv`. La clave `smp` permite cruzar con habilitaciones y fichas EPOK. La limpieza normaliza marcadores nulos y tipos, valida la clave y conserva faltantes en campos opcionales o dispersos. Los FOT negativos y los candidatos a outlier se reportan para revisión; no se corrigen automáticamente.
+
+- Las columnas `dist_*` pueden tener nulos estructurales; un faltante no se interpreta como “sin afectación”.
+- `dist_cpu_1` pertenece al Código de Planeamiento Urbano **derogado**: se conserva como contexto y se marca `dist_cpu_1_vigente=false`.
+- `uso_1/2/3` son **mixtura de uso**, no permisos de rubro.
+- Los SMP se clasifican como `estandar`, `ampliado`, `placeholder`, `invalido` o `sin_dato`; el control de `placeholder` (parcela `000`) precede al de formato estándar.
+
+### Compatibilidad urbanística
+
+`src/urbanismo.py` construye un panel de una fila por SMP y evalúa reglas versionadas contra señales del CU, el padrón y EPOK.
+
+```bash
+python src/export_postgres.py --codigo-urbanistico --dry-run   # solo valida y calcula
+python src/export_postgres.py --codigo-urbanistico             # artefactos + carga
+python src/export_postgres.py --codigo-urbanistico --sin-epok  # sin fichas EPOK
+python src/export_postgres.py --codigo-urbanistico --reglas db/seed/reglas_compatibilidad_urbanistica.json
+```
+
+Las reglas viven en [`db/seed/reglas_compatibilidad_urbanistica.json`](db/seed/reglas_compatibilidad_urbanistica.json) (versión `1.0.0`, 12 reglas, advertencia y SHA-256). Se evalúan por `prioridad` ascendente: gana la primera que coincide; si ninguna coincide, el estado es `no_verificable`.
+
+| Estado | Significado |
+|---|---|
+| `compatible` | Sin señales de fricción en los campos disponibles. **No** implica que el uso esté permitido. |
+| `requiere_revision` | Patrimonio, riesgo hídrico, línea de edificación, distrito especial o dato faltante. |
+| `no_compatible` | Afectación declarada: espacio público, apertura o ensanche. |
+| `no_verificable` | SMP ausente, placeholder, inválido o sin fila en el CU. |
+
+Reglas `1.0.0`: `SMP_NO_VERIFICABLE` (10), `CU_AUSENTE` (20), `ESPACIO_PUBLICO` (30), `AFECTACION_APERTURA` (31), `AFECTACION_ENSANCHE` (32), `PATRIMONIO_CATALOGADO` (40), `RIESGO_HIDRICO` (41), `LINEA_EDIFICACION` (42), `CONO_AEROPARQUE` (43), `DISTRITO_ESPECIAL` (50), `DISTRITO_SIN_DATO` (51) y `SIN_SENALES_DE_FRICCION` (99).
+
+### Cobertura medida
+
+| Cruce | Valor |
+|---|---|
+| SMP del padrón con fila en CU | **27.709 / 45.152 = 61,4%** |
+| Uso del CU por habilitaciones | **27.709 / 318.126 = 8,7%** |
+| Habilitaciones con fila en CU | **139.643 / 216.991 = 64,3%** |
+| Habilitaciones con EPOK (panel urbanístico) | **82.210 / 216.991 = 37,9%** |
+| Habilitaciones sin SMP | **44.152 / 216.991 = 20,3%** |
+
+Estados por SMP: `compatible` 187.142 (55,8%) · `requiere_revision` 128.124 (38,2%) · `no_verificable` 18.623 (5,5%) · `no_compatible` 1.680 (0,5%).
+
+Estados por habilitación: `compatible` 96.829 (44,6%) · `requiere_revision` 40.624 (18,7%) · `no_verificable` 33.542 (15,5%) · `sin_smp` 44.152 (20,3%) · `no_compatible` 1.844 (0,8%).
+
+La lectura correcta es de **cobertura de datos**, no de aprobación: el 35,7% de las habilitaciones no tiene fila en el CU y el 20,3% no tiene SMP. Esas ausencias explican la mayor parte de los estados no verificables.
+
+> El panel urbanístico cruza EPOK con los SMP sin relleno de ceros. El dashboard EPOK usa `limpiar_smp` y reporta **100.269 habilitaciones con ficha (46,2%)**; la diferencia es una limitación de normalización conocida, no un dato distinto de EPOK.
+
+Documentación completa: [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md).
+
+## Índice de oportunidad
+
+El índice responde *dónde y qué conviene abrir* con una fórmula versionada y auditable:
+
+```text
+score = 100 × (0,40 · crecimiento + 0,40 · (1 − saturación) + 0,20 · subrepresentación)
+```
+
+- **Crecimiento:** variación anualizada de la cuota del rubro dentro de su comuna.
+- **Baja saturación:** `1 − n_licencias(rubro, comuna) / media(comuna)`.
+- **Subrepresentación:** diferencia entre cuota esperada y observada del rubro.
+- Cada señal se normaliza min-max; `NaN` y series constantes pasan a `0.5`.
+- Los pesos se renormalizan para sumar 1; el score queda en `[0, 100]`.
+
+```bash
+python src/export_postgres.py --oportunidad --min-licencias 5 --top-rubros 80
+```
+
+Artefactos y objetos:
+
+| Objeto | Rol |
+|---|---|
+| `data/processed/indice_oportunidad.csv` | 1.121 filas × 22 columnas: score, componentes, aportes, métricas, versión y explicación |
+| `data/processed/indice_oportunidad_meta.json` | Versión, fecha, pesos, parámetros y SHA-256 del padrón de origen |
+| `indice_oportunidad_meta` | Una fila por corrida (`calculo_id`) |
+| `indice_oportunidad` | Historial append-only por `calculo_id` |
+| `indice_oportunidad_actual` | Vista de la última corrida |
+
+```sql
+SELECT comuna, rubro, oportunidad, n_licencias, explicacion
+FROM indice_oportunidad_actual
+ORDER BY oportunidad DESC
+LIMIT 10;
+```
+
+Última corrida: score entre **24,5 y 99,4**, `anio_ref=2025`, fuente SHA-256 `a402df64…9a343`.
+
+### Backtest mínimo
+
+`backtest_oportunidad` entrena solo con datos hasta `anio_corte` y evalúa el año siguiente, sin fuga de información. Resultado de la corrida documentada (corte 2019 → evaluación 2025):
+
+| Métrica | Valor |
+|---|---:|
+| Filas de entrenamiento | 156.216 |
+| Combinaciones comparables | 786 |
+| Spearman | **−0,178** |
+| top-10 hit rate | **0,00** |
+
+El índice **no anticipa** el crecimiento relativo en esa ventana. La causa principal es la cobertura despareja: 2020, 2021, 2023 y 2024 no traen `descripcion_rubro`, por lo que el cálculo solo puede usar 2015, 2019, 2025 y 2026. Es un backtest descriptivo de una sola ventana, no una validación causal ni un pronóstico.
+
+Fórmula, changelog y criterios de versionado: [`docs/indice_oportunidad_formula.md`](docs/indice_oportunidad_formula.md).
+
+## PostgreSQL
+
+Crear el esquema una vez (requiere permisos de `CREATE`):
+
+```bash
+psql "$DATABASE_URL" -f db/schema.sql
+python -m src.run_pipeline
+```
+
+| Tabla / vista | Grano |
+|---|---|
+| `habilitaciones` | Una fila por registro del padrón |
+| `rubros_requisitos` | Checklist curado por rubro, etapa y trámite |
+| `epok_fichas` | Una ficha catastral por SMP, con estado, intentos, último error y fechas de actualización |
+| `codigo_urbanistico` | Una fila por parcela: JSONB completo + columnas aplanadas |
+| `urbanismo_smp` | Panel vigente, una fila por SMP |
+| `urbanismo_cobertura` | Historial de corridas con reglas y huellas |
+| `indice_oportunidad_meta` | Metadatos por corrida del índice |
+| `indice_oportunidad` | Scores históricos por `calculo_id` |
+| `urbanismo_smp_actual` | Vista del panel vigente |
+| `urbanismo_cobertura_actual` | Vista de la última corrida urbanística |
+| `urbanismo_habilitaciones` | Vista por habilitación con estado, motivo y perfil EPOK |
+| `indice_oportunidad_actual` | Vista de la última corrida del índice |
+
+Consultas de ejemplo:
+
+```sql
+-- Distribución de estados por distrito
+SELECT familia_distrito, estado_compatibilidad, count(*) AS smp
+FROM urbanismo_smp_actual
+GROUP BY 1, 2
+ORDER BY 1, 2;
+
+-- Habilitaciones con señal de fricción
+SELECT solicitud, smp, descripcion_rubro, estado_compatibilidad, regla_id, motivo
+FROM urbanismo_habilitaciones
+WHERE estado_compatibilidad <> 'compatible'
+ORDER BY fecha_habilitacion DESC
+LIMIT 20;
+```
+
+### Permisos
+
+La carga de `codigo_urbanistico`, `urbanismo_*` e `indice_oportunidad*` requiere `CREATE` sobre el esquema `public` y sobre la base. Si el usuario no lo tiene, los artefactos se escriben igual en disco y la corrida termina con un aviso: no se pierde el resultado. Para habilitar la carga, un administrador debe ejecutar una vez:
+
+```sql
+GRANT CREATE ON SCHEMA public TO <usuario>;
+GRANT CREATE ON DATABASE innovalab TO <usuario>;
+```
+
+Después alcanza con repetir la carga selectiva o el pipeline completo. El repositorio no crea infraestructura ni guarda credenciales.
+
+### Requisitos de rubros
+
+`db/seed/rubros_requisitos.csv` es un **piloto** con requisitos generales y de cafetería (12 filas, 2 rubros), no un catálogo completo:
+
+```sql
+SELECT etapa, orden, tramite, obligatorio, documentacion_requerida, organismo, link_oficial
+FROM rubros_requisitos
+WHERE rubro IN ('General', 'Cafetería')
+ORDER BY etapa, orden;
+```
+
+## APIs y datos catastrales
+
+`src/apis_gcba.py` incluye clientes para:
+
+- **EPOK:** ficha catastral por SMP o por coordenadas; `enriquecer_epok.py` persiste los resultados en `epok_fichas`.
+- **BA Data (CKAN):** búsqueda y consulta de datasets abiertos.
+- **USIG:** normalización y geocodificación de direcciones; servicio intermitente y no requerido por el pipeline principal.
+
+### Enriquecimiento EPOK incremental
+
+`src/enriquecer_epok.py` lee los SMP distintos del padrón procesado, los normaliza con `limpiar_smp` y consulta solo lo necesario:
+
+```bash
+python src/limpiar_smp.py --dry-run
+python src/enriquecer_epok.py --solo-reporte       # dashboard sin llamar a EPOK
+python src/enriquecer_epok.py --probar              # 3 SMP
+python src/enriquecer_epok.py --limite 500          # lote acotado
+python src/enriquecer_epok.py                       # incremental
+python src/enriquecer_epok.py --solo-pendientes     # sin refrescar vencidas
+python src/enriquecer_epok.py --reintentar          # fallidas agotadas
+python src/enriquecer_epok.py --todo                # recarga completa
+```
+
+Política incremental:
+
+- SMP sin fila: se consulta.
+- SMP fallido: se reintenta hasta `--max-intentos` (default 3).
+- SMP resuelto: se refresca después de `--max-edad-dias` (default 30; 0 desactiva).
+- `--solo-pendientes` omite el refresh de fichas vencidas; `--todo` fuerza todas.
+
+Cada intento se registra en `epok_fichas`: `estado` (`ok`/`fallido`), `intentos`, `ultimo_error`, `ultimo_intento_en` y `actualizado_en` (última ficha válida). Un fallo no borra la última ficha buena. La API usa reintentos con backoff exponencial (`--reintentos`, `--backoff`).
+
+### Dashboard y alertas EPOK
+
+Al terminar, o con `--solo-reporte`, se generan:
+
+- `data/processed/epok_cobertura.json`: cobertura por SMP y habilitación, fichas, cortes por año/comuna, umbrales y alertas.
+- `data/processed/epok_dashboard.html`: dashboard autocontenido con barras de progreso, tablas y alertas.
+
+```bash
+xdg-open data/processed/epok_dashboard.html
+python src/enriquecer_epok.py --solo-reporte --fallar-si-alerta
+```
+
+Alertas: `SIN_PADRON`, `SIN_FICHAS`, `SIN_ACTUALIZACION`, `SLA_VENCIDO`, `COBERTURA_SMP_BAJA`, `COBERTURA_HABILITACIONES_BAJA`, `FICHAS_DESACTUALIZADAS`, `FICHAS_FALLIDAS`, `COLA_PENDIENTE`, `COMUNAS_SIN_COBERTURA` y `ANIOS_SIN_COBERTURA`. El detalle operativo está en [`docs/epok_enriquecimiento.md`](docs/epok_enriquecimiento.md).
+
+## Automatización
+
+El workflow [`.github/workflows/analytics-refresh.yml`](../../.github/workflows/analytics-refresh.yml) permite ejecución manual, corre los lunes a las **09:17 UTC** y se activa con cambios en `data/raw/`, `data/geo/`, `src/`, `db/schema.sql`, `db/seed/` o `requirements.txt` dentro de `data_analytics/innovalab`.
+
+El job instala dependencias, corre `pytest` y ejecuta `python -m src.run_pipeline` con `DATABASE_URL` tomado de los secretos del repositorio. El esquema debe existir previamente y el job no crea infraestructura ni consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
+
+El enriquecimiento EPOK **no** forma parte del workflow semanal: depende de la API del GCBA y puede tardar. Se ejecuta aparte con `python src/enriquecer_epok.py` y deja el dashboard y las alertas en `data/processed/`.
+
+El workflow [`.github/workflows/analytics-demo-restore.yml`](../../.github/workflows/analytics-demo-restore.yml) cubre el camino corto sin LFS. Corre en push y pull request que toquen `db/`, `scripts/`, `tests/` o `docker-compose.yml`:
+
+| Job | Qué prueba |
+|---|---|
+| `fixture` | Tests del fixture y del script, sin base ni Docker |
+| `compose` | `docker compose up` real y conteos contra `FIXTURE.json` |
+| `restore-demo` | `pg_dump` 18 real → `restore_dump.sh` → verificación |
+
+El job `restore-full` (dump de 89 MB) es **manual** y requiere que los objetos LFS estén subidos al remoto. Detalle: [`docs/datos_demo.md`](docs/datos_demo.md).
+
+## Notebooks
+
+| Notebook | Propósito |
+|---|---|
+| `01_exploracion_y_limpieza.ipynb` | Pipeline, controles de calidad y EDA del padrón. |
+| `02_modelos.ipynb` | Regresión de volumen y clasificación de comuna. |
+| `03_clustering_oportunidad.ipynb` | Grupos de comunas e índice de oportunidad. |
+| `04_exploracion_y_limpieza_de_codigo_urbanistico.ipynb` | Limpieza del CU, cruce con habilitaciones/EPOK y reglas de compatibilidad reales. |
+
+Resultados exploratorios: en el notebook 02 la clasificación de comuna alcanza **17,7%** de accuracy frente a un baseline de **15,3%**, y el split temporal de la regresión obtiene R² negativo. El notebook 04 predice si el padrón tiene fecha de habilitación registrada; **la ausencia de fecha no significa rechazo**. Los notebooks no son necesarios para la carga programada.
+
+## Pruebas
+
+```bash
+python -m pytest tests/ -v
+```
+
+La suite cubre contratos de datos, estadística, oportunidad, urbanismo y clientes de APIs. Ejecútala desde `data_analytics/innovalab`. Las pruebas de contrato de `tests/test_data.py` validan `data/processed/habilitaciones_caba_clean.csv`: si el archivo no existe, se omiten; una suite sin omisiones requiere el CSV disponible localmente.
+
+## Limitaciones
+
+- Hay años faltantes en la cobertura histórica; `anio` identifica el archivo de origen y no forma una serie temporal completa.
+- La cobertura geográfica depende de la calidad de direcciones y claves del padrón original.
+- `superficie` falta o vale cero en la mayoría de los registros; EPOK aporta datos catastrales cuando la SMP se resuelve.
+- La cobertura EPOK es parcial y despareja: 51,9% de los SMP y 46,2% de las habilitaciones al 2026-10-28. Las comunas 8–12 y el año 2025 no tienen fichas; el dashboard lo reporta como alerta.
+- El dashboard EPOK normaliza los SMP con relleno de ceros (`limpiar_smp`); el panel urbanístico usa una normalización sin relleno, por eso su métrica de EPOK es menor. Unificar ambas queda como deuda técnica.
+- `descripcion_rubro` falta en 2020, 2021, 2023 y 2024 (esos archivos solo traen `codigo_rubro`); el índice usa únicamente 2015, 2019, 2025 y 2026.
+- El índice es orientativo: el backtest da Spearman −0,178 y top-10 hit rate 0,0.
+- Los estados urbanísticos son señales de fricción, no permisos ni rechazos. La compatibilidad **no evalúa el rubro** y `compatible` no implica uso permitido.
+- La cobertura del cruce urbanístico es parcial: 61,4% de los SMP del padrón tiene fila en el CU y 35,7% de las habilitaciones no puede cruzarse. `no_verificable` refleja esa limitación.
+- `rubros_requisitos` cubre solo un piloto de 2 rubros.
+- La carga local de las tablas urbanísticas e índice queda bloqueada hasta otorgar los permisos de `CREATE` indicados arriba.
+
+## Documentación
+
+- [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md) — reglas, estados, panel, cobertura y versionado.
+- [`docs/indice_oportunidad_formula.md`](docs/indice_oportunidad_formula.md) — fórmula, artefacto, backtest y changelog.
+- [`docs/epok_enriquecimiento.md`](docs/epok_enriquecimiento.md) — modelo de datos, refresh incremental, dashboard, alertas y migración.
+- [`db/schema.sql`](db/schema.sql) — esquema completo.
+- [`db/seed/reglas_compatibilidad_urbanistica.json`](db/seed/reglas_compatibilidad_urbanistica.json) — reglas `1.0.0`.

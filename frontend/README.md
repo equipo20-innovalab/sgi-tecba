@@ -14,7 +14,7 @@ Vite (v8.3.3): Nuestro empaquetador y servidor de desarrollo local. Lo preferimo
 
 Tailwind CSS: Framework de estilos (utility-first) que nos permite diseñar interfaces limpias y adaptables rápidamente sin escribir CSS complejo desde cero.
 
-Leaflet & OpenStreetMap: Librería de mapas interactivos de código abierto. Se eligió por encima de Google Maps para evitar restricciones de tarjetas de crédito, costos por número de visitas y licencias comerciales.
+MapLibre GL + Satélite (Esri World Imagery): MapLibre (fork open source de Mapbox GL) renderiza imágenes satelitales reales de Esri y edificios 3D extruidos con altura real, usando los vectores de CARTO. Se eligió por encima de Google Maps para evitar restricciones de tarjetas de crédito, costos por número de visitas y licencias comerciales.
 
 📂 Estructura del Proyecto
 
@@ -88,6 +88,20 @@ La terminal te mostrará un enlace local (generalmente http://localhost:5173/).
 
 Presiona la tecla Ctrl y haz clic en ese enlace (o cópialo y pégalo en tu navegador web de preferencia) para ver la aplicación corriendo en vivo. ¡Felicidades, ya tienes el entorno de desarrollo activo!
 
+### Conectar con la API y los datos
+
+El buscador envía el texto a `POST /api/v1/consulta` en el backend FastAPI. En
+desarrollo, Vite reenvía las solicitudes `/api` a `http://127.0.0.1:8000`.
+La API relaciona las direcciones exactas del padrón de habilitaciones con su
+SMP, ficha EPOK, historial completo de habilitaciones y atributos del Código
+Urbanístico (cuando se cargue el CSV). El mapa muestra límites de comunas y
+parcelas georreferenciadas con sus rubros; también se puede consultar por SMP.
+Antes de iniciar el frontend, configura y arranca `backend-api` siguiendo su
+[guía de puesta en marcha](../backend-api/README.md), incluida la base
+PostgreSQL/PostGIS y la carga de datos del pipeline de Data Analytics. Si la API
+no está disponible o la base no tiene datos, la interfaz muestra el error y no
+reemplaza la respuesta por resultados simulados.
+
 🌿 ¿Cómo trabajar en equipo sin romper nada? (Git Flow básico)
 
 Para evitar sobreescribir el trabajo de tus compañeros, sigue esta rutina cada vez que vayas a programar:
@@ -120,7 +134,7 @@ Por último, ve a GitHub y abre un Pull Request (PR) hacia la rama main para que
 
 
 Solución de Problemas Frecuentes:
-Si al ejecutar npm run dev por primera vez te aparece un error en la terminal diciendo que falta Leaflet o Cannot find module 'tailwindcss', significa que algunas dependencias no se descargaron automáticamente con el npm install inicial.
+Si al ejecutar npm run dev por primera vez te aparece un error en la terminal diciendo que falta MapLibre o Cannot find module 'tailwindcss', significa que algunas dependencias no se descargaron automáticamente con el npm install inicial.
 
 Además, es crucial asegurarnos de utilizar Tailwind CSS en su versión 3.x para mantener la compatibilidad con nuestros archivos de configuración actuales y evitar que se rompan los estilos.
 
@@ -129,7 +143,7 @@ Para solucionarlo, frena tu servidor (Ctrl + C) y ejecuta estos dos comandos den
 1. Instalar la librería del mapa interactivo:
 
 Bash
-npm install leaflet
+npm install maplibre-gl
 2. Instalar el motor de estilos en la versión correcta (3.4.19):
 
 Bash

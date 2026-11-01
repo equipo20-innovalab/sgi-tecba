@@ -1,0 +1,44 @@
+# Base de datos de demo (datos chicos, sin LFS)
+#
+# Levanta PostgreSQL 18 con el esquema y el fixture sanitizado ya cargados.
+# No usa el dump de 89 MB ni requiere Git LFS.
+#
+#   docker compose up -d --wait
+#   psql "postgresql://innovalab:innovalab_demo@localhost:55432/innovalab" \
+#        -f db/demo/verificar_demo.sql
+#   docker compose down            # conserva el volumen
+#   docker compose down -v         # borra también los datos
+#
+# Variables: INNOVALAB_PG_PORT (default 55432), INNOVALAB_DB, INNOVALAB_USER,
+# INNOVALAB_PASSWORD. Requiere Docker Compose v2.
+
+name: innovalab-datos
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: innovalab-demo
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${INNOVALAB_DB:-innovalab}
+      POSTGRES_USER: ${INNOVALAB_USER:-innovalab}
+      POSTGRES_PASSWORD: ${INNOVALAB_PASSWORD:-innovalab_demo}
+    ports:
+      - "${INNOVALAB_PG_PORT:-55432}:5432"
+    volumes:
+      # En PostgreSQL 18 la imagen mueve PGDATA a /var/lib/postgresql/18/docker;
+      # montar el padre funciona también para versiones anteriores.
+      - innovalab_pgdata:/var/lib/postgresql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/seed/rubros_requisitos.csv:/docker-entrypoint-initdb.d/seed/rubros_requisitos.csv:ro
+      - ./db/demo:/docker-entrypoint-initdb.d/demo:ro
+      - ./db/demo/init_demo.sql:/docker-entrypoint-initdb.d/02_demo.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  innovalab_pgdata:

@@ -12,9 +12,6 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# Datos crudos, procesados y geo (pesados, no se versionan)
-data/
-
 # Editores / SO
 .vscode/
 .idea/

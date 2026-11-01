@@ -4,8 +4,16 @@ from sqlalchemy import func, text
 from app.core.database import get_db
 from app.models.habilitacion import Habilitacion
 from app.schemas.habilitacion import ConteoPorComuna, RubroConteo
+from app.schemas.consulta import CoberturaDatos
+from app.services.fuentes_service import obtener_cobertura_datos
 
 router = APIRouter()
+
+
+@router.get("/habilitaciones/cobertura", response_model=CoberturaDatos)
+def cobertura_habilitaciones(db: Session = Depends(get_db)):
+    """Devuelve cobertura por columna y la procedencia de los campos trazables."""
+    return obtener_cobertura_datos(db)
 
 @router.get("/habilitaciones/por-comuna/{comuna}", response_model=ConteoPorComuna)
 def habilitaciones_por_comuna(comuna: int, db: Session = Depends(get_db)):

@@ -52,9 +52,15 @@ _CACHE: dict[str, Any] = {}
 
 
 def _get(url: str, *, params: dict | None = None, timeout: int,
-         reintentos: int = _REINTENTOS) -> requests.Response | None:
-    """GET con reintentos limitados. Devuelve None si definitivamente falla."""
-    espera = _ESPERA_REINTENTO
+         reintentos: int = _REINTENTOS,
+         espera: float = _ESPERA_REINTENTO) -> requests.Response | None:
+    """GET con reintentos y backoff exponencial.
+
+    ``espera`` es la pausa inicial; se duplica después de cada intento. Los
+    llamadores pueden ajustar ambos valores (por ejemplo, el enriquecedor EPOK).
+    Devuelve None si definitivamente falla.
+    """
+    espera = max(0.0, espera)
     for intento in range(reintentos + 1):
         try:
             resp = requests.get(
@@ -82,12 +88,20 @@ def _cache_clave(url: str, params: dict | None) -> str:
 # EPOK Catastro
 # --------------------------------------------------------------------------- #
 
-def consultar_epok_por_smp(smp: str) -> dict | None:
-    """Ficha catastral de una parcela por su SMP (ej: '01-001-001A').
+def consultar_epok_por_smp(
+    smp: str,
+    *,
+    reintentos: int | None = None,
+    espera: float | None = None,
+) -> dict | None:
+    """Ficha catastral de una parcela por su SMP (ej: '001-001-001A').
 
     Devuelve dict con claves útiles: `superficie_total`, `superficie_cubierta`,
     `centroide` [lng, lat], `direccion`, `pdamatriz`, `puertas`, etc.
     Devuelve None si la parcela no existe o EPOK no responde.
+
+    ``reintentos`` y ``espera`` permiten ajustar el backoff exponencial; con
+    ``None`` se usan los valores por defecto del módulo.
     """
     if not smp or not isinstance(smp, str):
         return None
@@ -96,7 +110,13 @@ def consultar_epok_por_smp(smp: str) -> dict | None:
     if clave in _CACHE:
         return _CACHE[clave]
 
-    resp = _get(EPOK_BASE + "/parcela/", params={"smp": smp}, timeout=TIMEOUT_EPOK)
+    resp = _get(
+        EPOK_BASE + "/parcela/",
+        params={"smp": smp},
+        timeout=TIMEOUT_EPOK,
+        reintentos=_REINTENTOS if reintentos is None else reintentos,
+        espera=_ESPERA_REINTENTO if espera is None else espera,
+    )
     if resp is None:
         return None
     try:

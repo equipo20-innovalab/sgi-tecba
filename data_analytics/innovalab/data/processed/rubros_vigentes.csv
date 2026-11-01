@@ -1,0 +1,63 @@
+﻿categoria,codigo_rubro,descripcion,tipo_tramite,observaciones,fuente
+1. COMERCIAL,1.1,Comercio mayorista sin depósito,DDRR-E,Alimenticios en general / Alimenticios envasados / No alimenticios con especificación de tipo,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.2,Comercio mayorista con depósito. Art. 3.13.5. b).,DDRR S/P,Alimenticios en general / Alimenticios envasados / No alimenticios con especificación de tipo,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.3,Comercio mayorista con depósito-Art. 3.13.5. a).,DDRR S/P,Alimenticios en general / Alimenticios envasados / No alimenticios con especificación de tipo,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.3.1,Local de venta de productos perecederos,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.4,Comercio minorista de productos de abasto y alimenticios,DDRR-E,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.4.1,Local de venta de leña y carbón de leña,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.4.2,Local de venta de golosinas envasadas (kiosco),,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.4.3,Maxikiosco,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.4.4,"Local de venta de productos alimenticios y/o bebidas (excluido feria, mercado, supermercado y autoservicio)",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.5,Alimentación en general y gastronomía,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.5.1,Patio gastronómico,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.5.2,Mercado gastronómico,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.5.3,Alimentación en general para llevar,DDRR-E,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6,Comercio minorista alimenticios por sistema de venta,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6.1,Supermercado,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6.2,Supermercado total,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6.3,Autoservicio de productos alimenticios,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6.4,Autoservicio de proximidad,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.6.5,Mercado,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.7,Comercio minorista no alimenticios por sistema de venta,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.7.1,Paseo de Compras/Grandes Tiendas,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.7.2,Galería Comercial,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.7.4,Autoservicio de productos no alimenticios,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8,Comercio minorista excluido comestibles como uso principal,DDRR C/P ó DDRR-E,De acuerdo a los usos conforme lo determine el órgano facultado,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.1,Herboristería,DDRR-E,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.2,Farmacia,DDRR S/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.3,Local de venta de papeles pintados/ alfombras / artículos de decoración,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.4,"Local de venta de antigüedades, objetos de arte",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.5,Local de venta de materiales de construcción clase I (exposición y venta),,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.6,"Local de venta de materiales de construcción clase II (con depósito, sin materiales a granel)",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.7,Local de venta de materiales de construcción clase III (sin exclusiones),,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.8,"Local de venta de semillas, plantas, artículos y herramientas para jardinería",DDRR-E,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.9,Local de venta de animales domésticos,DDRR S/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.10,Local de venta de artículos para el hogar y afines,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.11,Local de venta de artículos publicitarios,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.12,"Tabaquería, cigarrería",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.13,Cerrajería,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.14,Óptica y fotografía,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.15,"Local de venta de símbolos patrios, distintivos, medallas y trofeos",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.16,Local de venta de vidrios y espejos,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.17,"Rodados en general, bicicletas, motos",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.18,Relojería y joyería,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.19,"Instrumentos de precisión, científicos, musicales, ortopedia",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.20,Armería,DDRR C/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.21,Metales y piedras preciosas (compra-venta),DDRR S/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.22,Almacén naval,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.23,"Ferretería industrial, máquinas, herramientas, motores industriales y agrícolas",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.24,Casa de remates,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.25,Local de venta de toldos y accesorios,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.26,"Local de venta de muebles en general, productos de madera y mimbre, metálicos-colchones y afines",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.27,"Local de venta de elementos contra incendio, matafuegos y artículos para seguridad industrial",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.28,"Local de venta de artículos y equipamiento médico, hospitalario y farmacéutico",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.29,Local de venta de artículos y aparatos para equipamiento comercial y de servicio,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.30,Local de venta de repuestos y accesorios para automotores,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.31,"Automotores, embarcaciones, aviones",DDRR S/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.32,Pinturería,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.33,"Local de venta de sustancias químicas, caucho y plásticos",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.34,Local de venta de lubricantes y aditivos para automotores,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.35,Vivero,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.36,Local de venta de reactivos y aparatos para laboratorios de análisis clínicos o industriales,DDRR S/P,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.37,Gas envasado,,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites
+1. COMERCIAL,1.8.38,"Gas envasado, distribución hasta 100kgs",,,Anexo II Resolución 96/AGC/25 - Usos de Actividad Económica y Tipos de Trámites

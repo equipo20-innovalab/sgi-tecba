@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cobertura EPOK · Innovalab</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: #f4f6f8; color: #1c2733; }
+  main { max-width: 1080px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 30px; }
+  h2 { margin: 32px 0 10px; font-size: 19px; }
+  .sub { color: #607080; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .card { background: #fff; border: 1px solid #dfe5ea; border-radius: 10px; padding: 16px; }
+  .label { color: #607080; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .value { font-size: 28px; font-weight: 700; margin: 4px 0; }
+  .hint { color: #607080; font-size: 12px; min-height: 18px; }
+  .bar { height: 7px; background: #e8edf1; border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .bar span { display: block; height: 100%; background: #1f7a5c; }
+  ul.alerts { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .alert { background: #fff; border-left: 5px solid #c28b00; border-radius: 6px; padding: 12px 14px; }
+  .alert.critica { border-left-color: #b3261e; }
+  .alert.ok { border-left-color: #1f7a5c; color: #1f7a5c; }
+  .nivel { color: #607080; font-size: 11px; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dfe5ea; border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #edf1f4; font-size: 13px; }
+  th { background: #f8fafb; color: #607080; font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td .bar { margin: 0; width: 120px; }
+  footer { margin-top: 28px; color: #607080; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cobertura EPOK</h1>
+  <div class="sub">Generado 2026-10-29T00:56:50.163093+00:00 · Fuente: epok_fichas + padrón procesado</div>
+  <div class="grid"><div class="card"><div class="label">SMP resueltos</div><div class="value">51,9%</div><div class="hint">19,608 / 37,794</div><div class="bar"><span style="width:51.9%"></span></div></div><div class="card"><div class="label">Habilitaciones con ficha</div><div class="value">46,2%</div><div class="hint">100,269 / 216,991</div><div class="bar"><span style="width:46.2%"></span></div></div><div class="card"><div class="label">Fichas resueltas</div><div class="value">19,608</div><div class="hint">0 fallidas · 19,608 en el padrón</div></div><div class="card"><div class="label">Pendientes</div><div class="value">18,186</div><div class="hint">SMP sin ficha en el padrón actual</div></div><div class="card"><div class="label">Desactualizadas</div><div class="value">0</div><div class="hint">SLA 30 días</div></div><div class="card"><div class="label">Última actualización</div><div class="value">2026-10-14</div><div class="hint">hace 14 días</div></div></div>
+  <h2>Alertas</h2>
+  <ul class="alerts"><li class="alert advertencia"><strong>COBERTURA_SMP_BAJA</strong> <span class="nivel">advertencia</span><br>Cobertura de SMP resueltos 51.9% por debajo del objetivo 80%.</li><li class="alert advertencia"><strong>COBERTURA_HABILITACIONES_BAJA</strong> <span class="nivel">advertencia</span><br>Cobertura de habilitaciones con ficha 46.2% por debajo del objetivo 80%.</li><li class="alert advertencia"><strong>COLA_PENDIENTE</strong> <span class="nivel">advertencia</span><br>18,186 SMP pendientes superan el máximo de 5,000.</li><li class="alert advertencia"><strong>COMUNAS_SIN_COBERTURA</strong> <span class="nivel">advertencia</span><br>Comunas con al menos 100 habilitaciones y 0% de cobertura: 8, 9, 10, 11, 12, sin_dato</li><li class="alert advertencia"><strong>ANIOS_SIN_COBERTURA</strong> <span class="nivel">advertencia</span><br>Años con al menos 100 habilitaciones y 0% de cobertura: 2025</li></ul>
+  <h2>Cobertura por año</h2><table><thead><tr><th>Anio</th><th>Habilitaciones</th><th>Con SMP</th><th>Con ficha</th><th>Cobertura</th><th>%</th></tr></thead><tbody><tr><td>2015</td><td>137,463</td><td>136,632</td><td>79,934</td><td><div class="bar"><span style="width:58.1%"></span></div></td><td>58,1%</td></tr><tr><td>2019</td><td>18,861</td><td>18,659</td><td>11,042</td><td><div class="bar"><span style="width:58.5%"></span></div></td><td>58,5%</td></tr><tr><td>2020</td><td>4,585</td><td>4,422</td><td>2,560</td><td><div class="bar"><span style="width:55.8%"></span></div></td><td>55,8%</td></tr><tr><td>2021</td><td>26,117</td><td>8,894</td><td>4,303</td><td><div class="bar"><span style="width:16.5%"></span></div></td><td>16,5%</td></tr><tr><td>2023</td><td>1,616</td><td>1,571</td><td>912</td><td><div class="bar"><span style="width:56.4%"></span></div></td><td>56,4%</td></tr><tr><td>2024</td><td>2,746</td><td>2,661</td><td>1,518</td><td><div class="bar"><span style="width:55.3%"></span></div></td><td>55,3%</td></tr><tr><td>2025</td><td>25,601</td><td>0</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>2026</td><td>2</td><td>0</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr></tbody></table>
+  <h2>Cobertura por comuna</h2><table><thead><tr><th>Comuna</th><th>Habilitaciones</th><th>Con SMP</th><th>Con ficha</th><th>Cobertura</th><th>%</th></tr></thead><tbody><tr><td>1</td><td>25,864</td><td>20,332</td><td>18,533</td><td><div class="bar"><span style="width:71.7%"></span></div></td><td>71,7%</td></tr><tr><td>2</td><td>10,796</td><td>8,769</td><td>8,626</td><td><div class="bar"><span style="width:79.9%"></span></div></td><td>79,9%</td></tr><tr><td>3</td><td>30,401</td><td>26,106</td><td>25,647</td><td><div class="bar"><span style="width:84.4%"></span></div></td><td>84,4%</td></tr><tr><td>4</td><td>9,063</td><td>7,843</td><td>7,251</td><td><div class="bar"><span style="width:80.0%"></span></div></td><td>80,0%</td></tr><tr><td>5</td><td>9,119</td><td>8,624</td><td>8,499</td><td><div class="bar"><span style="width:93.2%"></span></div></td><td>93,2%</td></tr><tr><td>6</td><td>7,607</td><td>7,000</td><td>2,300</td><td><div class="bar"><span style="width:30.2%"></span></div></td><td>30,2%</td></tr><tr><td>7</td><td>14,612</td><td>13,635</td><td>1,025</td><td><div class="bar"><span style="width:7.0%"></span></div></td><td>7,0%</td></tr><tr><td>8</td><td>3,735</td><td>3,207</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>9</td><td>9,941</td><td>8,510</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>10</td><td>14,574</td><td>13,626</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>11</td><td>10,219</td><td>8,796</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>12</td><td>9,135</td><td>8,217</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr><tr><td>13</td><td>13,117</td><td>11,916</td><td>10,488</td><td><div class="bar"><span style="width:80.0%"></span></div></td><td>80,0%</td></tr><tr><td>14</td><td>17,212</td><td>13,735</td><td>13,160</td><td><div class="bar"><span style="width:76.5%"></span></div></td><td>76,5%</td></tr><tr><td>15</td><td>13,868</td><td>12,123</td><td>4,740</td><td><div class="bar"><span style="width:34.2%"></span></div></td><td>34,2%</td></tr><tr><td>sin_dato</td><td>17,728</td><td>400</td><td>0</td><td><div class="bar"><span style="width:0.0%"></span></div></td><td>0,0%</td></tr></tbody></table>
+  <footer>
+    Umbrales: cobertura SMP ≥ 80,0%,
+    habilitaciones ≥ 80,0%,
+    SLA ≤ 30 días,
+    fallidas ≤ 100,
+    pendientes ≤ 5,000.
+  </footer>
+</main>
+</body>
+</html>

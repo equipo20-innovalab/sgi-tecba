@@ -1,0 +1,242 @@
+{
+  "generado_en": "2026-10-29T00:37:43.139815+00:00",
+  "reglas": {
+    "version": "1.0.0",
+    "fecha": "2026-10-28",
+    "ruta": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/db/seed/reglas_compatibilidad_urbanistica.json",
+    "sha256": "62fe266f94d87ed8da9a6a36865c36d50e35fd0593d0107e60b0c44b8ea92791",
+    "advertencia": "Este resultado es orientativo y NO constituye permiso de uso, habilitación comercial, aptitud legal ni asesoramiento profesional. Antes de invertir o abrir un local, verificá el Código Urbanístico vigente, el distrito, el uso admitido y los trámites aplicables ante el GCBA."
+  },
+  "fuentes": {
+    "codigo_urbanistico": {
+      "ruta": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/data/processed/codigo_urbanistico_limpio.csv",
+      "sha256": "18acc5250dde974778700d0e64a5c2098e1220062caf6fe92af5c87939c3c9ae",
+      "filas": 318126,
+      "smp_unicos": 318126
+    },
+    "habilitaciones": {
+      "ruta": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/data/processed/habilitaciones_caba_clean.csv",
+      "sha256": "a402df6463a221a8d44fc103075c0e37810b4d54f199e217ffca6d1b8bd9a343",
+      "filas": 216991
+    },
+    "epok_fichas": {
+      "ruta": "tabla epok_fichas",
+      "disponible": true,
+      "filas": 19608
+    }
+  },
+  "parametros": {
+    "reglas_version": "1.0.0",
+    "epok_disponible": true
+  },
+  "resumen": {
+    "smp_codigo": 318126,
+    "smp_habilitaciones": 45152,
+    "smp_epok": 19608,
+    "smp_interseccion": 27709,
+    "smp_codigo_y_epok": 19608,
+    "cobertura_habilitaciones_por_smp": 0.6137,
+    "cobertura_codigo_usado_por_habilitaciones": 0.0871,
+    "habilitaciones": 216991,
+    "habilitaciones_con_smp": 172839,
+    "habilitaciones_con_codigo": 139643,
+    "habilitaciones_con_epok": 82210,
+    "habilitaciones_con_codigo_y_epok": 82210,
+    "pct_habilitaciones_con_smp": 0.7965,
+    "pct_habilitaciones_con_codigo": 0.6435,
+    "pct_habilitaciones_con_epok": 0.3789,
+    "pct_habilitaciones_con_codigo_y_epok": 0.3789
+  },
+  "clasificacion_smp": {
+    "total": 318126,
+    "validos": 316946,
+    "cobertura_valida": 0.9963,
+    "clasificacion": {
+      "estandar": 316836,
+      "ampliado": 110,
+      "placeholder": 1180,
+      "invalido": 0,
+      "sin_dato": 0
+    },
+    "ejemplos": {
+      "invalido": [],
+      "placeholder": [
+        "001-007B-000",
+        "001-010B-000",
+        "001-017B-000",
+        "001-018A-000",
+        "001-041-000",
+        "001-057A-000",
+        "001-058-000",
+        "001-062-000",
+        "001-065-000",
+        "001-066-000"
+      ]
+    }
+  },
+  "clasificacion_habilitaciones": {
+    "total": 216991,
+    "validos": 145393,
+    "cobertura_valida": 0.67,
+    "clasificacion": {
+      "estandar": 141126,
+      "ampliado": 4267,
+      "placeholder": 917,
+      "invalido": 26529,
+      "sin_dato": 44152
+    },
+    "ejemplos": {
+      "invalido": [
+        "000-13-4",
+        "000-3-35",
+        "001-003A-4",
+        "001-003B-1",
+        "001-003B-2",
+        "001-003B-6",
+        "001-003B-7",
+        "001-003B-8",
+        "001-007A-9",
+        "001-018B-1"
+      ],
+      "placeholder": [
+        "001-068-0000",
+        "001-070-000",
+        "003-017C-0000",
+        "003-067A-0000",
+        "005-070C-0000",
+        "006-092-000",
+        "009-080-000",
+        "009-080-0000",
+        "010-062-000",
+        "013-060-000"
+      ]
+    }
+  },
+  "estados_smp": {
+    "compatible": 187142,
+    "no_compatible": 1680,
+    "no_verificable": 18623,
+    "requiere_revision": 128124
+  },
+  "estados_habilitaciones": {
+    "compatible": 96829,
+    "no_compatible": 1844,
+    "no_verificable": 33542,
+    "requiere_revision": 40624,
+    "sin_smp": 44152
+  },
+  "familias_distrito": {
+    "AE": 51217,
+    "APH": 8543,
+    "AREA_RENOVACION": 198,
+    "EE": 363,
+    "ESPACIO_PUBLICO": 473,
+    "RUA": 2421,
+    "U": 23125,
+    "UF": 132,
+    "UP": 1130,
+    "ninguno": 247764,
+    "otro": 57,
+    "sin_dato": 146
+  },
+  "flags": {
+    "catalogado": {
+      "si": 5458,
+      "no": 308245,
+      "sin_dato": 21866
+    },
+    "riesgo_hidrico": {
+      "si": 46143,
+      "no": 271983,
+      "sin_dato": 17443
+    },
+    "linea_edificacion_particularizada": {
+      "si": 7111,
+      "no": 311015,
+      "sin_dato": 17443
+    },
+    "ensanche": {
+      "si": 1250,
+      "no": 316876,
+      "sin_dato": 17443
+    },
+    "apertura": {
+      "si": 262,
+      "no": 317864,
+      "sin_dato": 17443
+    },
+    "cono_aeroparque": {
+      "si": 338,
+      "no": 317788,
+      "sin_dato": 17443
+    },
+    "cinturon_digital": {
+      "si": 4477,
+      "no": 313649,
+      "sin_dato": 17443
+    },
+    "altura_esquina_rivolta": {
+      "si": 7249,
+      "no": 310877,
+      "sin_dato": 17443
+    }
+  },
+  "limitaciones": [
+    "La compatibilidad es orientativa y no constituye permiso de uso ni habilitación.",
+    "El Código Urbanístico no publica un campo de 'uso permitido' por rubro; uso_1/2/3 son 'mixtura de uso' y no deben interpretarse como autorización.",
+    "dist_cpu_1 pertenece al Código de Planeamiento Urbano derogado; se conserva como contexto y se marca dist_cpu_1_vigente=false.",
+    "Un SMP placeholder (parcela 000) no identifica una parcela real.",
+    "La ausencia de ficha EPOK no implica que la parcela no exista."
+  ],
+  "artefacto": {
+    "csv": "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/data/processed/urbanismo_smp.csv",
+    "sha256": "44095af23d054dbb04006789f5b9e8a90679e07dbc94176ca42407cdfeaaa6e3",
+    "filas": 335569,
+    "columnas": [
+      "smp",
+      "smp_clasificacion",
+      "smp_valido",
+      "codigo_presente",
+      "epok_presente",
+      "n_habilitaciones",
+      "n_comunas_habilitaciones",
+      "primer_anio",
+      "ultimo_anio",
+      "familia_distrito",
+      "estado_compatibilidad",
+      "regla_id",
+      "motivo",
+      "reglas_version",
+      "uso_1",
+      "uso_2",
+      "uso_3",
+      "dist_1_grp",
+      "dist_1_esp",
+      "catalogado",
+      "riesgo_hidrico",
+      "linea_edificacion_particularizada",
+      "ensanche",
+      "apertura",
+      "cono_aeroparque",
+      "cinturon_digital",
+      "altura_esquina_rivolta",
+      "uni_edif_1",
+      "fot_em_1",
+      "fot_pl_1",
+      "fot_sl_1",
+      "dist_cpu_1",
+      "dist_cpu_1_vigente",
+      "tipo_mza",
+      "barrio",
+      "comuna_codigo",
+      "epok_direccion",
+      "epok_superficie_total",
+      "epok_superficie_cubierta",
+      "epok_pisos_sobre_rasante",
+      "epok_unidades_funcionales",
+      "epok_lng",
+      "epok_lat",
+      "calculado_en"
+    ]
+  }
+}

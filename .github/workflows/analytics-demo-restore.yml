@@ -1,0 +1,227 @@
+name: Demo data y restore
+
+# Prueba el camino corto (sin Git LFS): fixture versionado + docker compose con
+# init + restauración de un dump generado con pg_dump 18. El dump completo de
+# 89 MB se prueba solo a pedido, porque depende de que los objetos LFS estén
+# subidos al remoto.
+
+on:
+  workflow_dispatch:
+    inputs:
+      restaurar_dump_completo:
+        description: "Probar db/innovalab_dump.sql (89 MB, requiere Git LFS)"
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    paths:
+      - "data_analytics/innovalab/db/**"
+      - "data_analytics/innovalab/scripts/**"
+      - "data_analytics/innovalab/tests/**"
+      - "data_analytics/innovalab/docker-compose.yml"
+      - ".github/workflows/analytics-demo-restore.yml"
+  pull_request:
+    paths:
+      - "data_analytics/innovalab/db/**"
+      - "data_analytics/innovalab/scripts/**"
+      - "data_analytics/innovalab/tests/**"
+      - "data_analytics/innovalab/docker-compose.yml"
+      - ".github/workflows/analytics-demo-restore.yml"
+
+permissions:
+  contents: read
+
+env:
+  DIR_DATOS: data_analytics/innovalab
+
+jobs:
+  fixture:
+    name: Fixture y script (sin base)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: data_analytics/innovalab/requirements.txt
+
+      - name: Instalar dependencias
+        working-directory: ${{ env.DIR_DATOS }}
+        run: python -m pip install -r requirements.txt
+
+      - name: Tests del fixture y del script de restore
+        working-directory: ${{ env.DIR_DATOS }}
+        run: python -m pytest tests/test_demo_fixture.py tests/test_restore_dump.py -v
+
+      - name: Validar sintaxis del script
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          bash -n scripts/restore_dump.sh
+          ./scripts/restore_dump.sh --version
+
+  compose:
+    name: Docker Compose + init
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Levantar PostgreSQL 18 con esquema y fixture
+        working-directory: ${{ env.DIR_DATOS }}
+        run: docker compose up -d --wait
+
+      - name: Verificar que el init cargó el fixture
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          docker compose exec -T postgres psql \
+            -U innovalab -d innovalab -v ON_ERROR_STOP=1 \
+            -f /docker-entrypoint-initdb.d/demo/verificar_demo.sql
+
+      - name: Comparar conteos con FIXTURE.json
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          esperado_hab=$(python -c "import json; m=json.load(open('db/demo/FIXTURE.json')); print(m['archivos']['habilitaciones_demo.csv']['filas'])")
+          esperado_epok=$(python -c "import json; m=json.load(open('db/demo/FIXTURE.json')); print(m['archivos']['epok_fichas_demo.csv']['filas'])")
+          obtenido_hab=$(docker compose exec -T postgres psql -U innovalab -d innovalab -tAc "SELECT count(*) FROM habilitaciones")
+          obtenido_epok=$(docker compose exec -T postgres psql -U innovalab -d innovalab -tAc "SELECT count(*) FROM epok_fichas")
+          echo "habilitaciones: esperado=$esperado_hab obtenido=$obtenido_hab"
+          echo "epok_fichas:    esperado=$esperado_epok obtenido=$obtenido_epok"
+          test "$obtenido_hab" = "$esperado_hab"
+          test "$obtenido_epok" = "$esperado_epok"
+
+      - name: Bajar el contenedor
+        if: always()
+        working-directory: ${{ env.DIR_DATOS }}
+        run: docker compose down -v
+
+  restore-demo:
+    name: Restore de dump PG18 (fixture)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: origen
+          POSTGRES_USER: innovalab
+          POSTGRES_PASSWORD: innovalab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U innovalab -d origen"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DSN_ORIGEN: postgresql://innovalab:innovalab@127.0.0.1:5432/origen
+      DSN_RESTAURADO: postgresql://innovalab:innovalab@127.0.0.1:5432/restaurado
+      PGPASSWORD: innovalab
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cargar esquema y fixture en la base de origen
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          psql "$DSN_ORIGEN" -v ON_ERROR_STOP=1 -q -f db/schema.sql
+          psql "$DSN_ORIGEN" -v ON_ERROR_STOP=1 -q \
+            -v demo_dir="$PWD/db/demo" -v seed_dir="$PWD/db/seed" \
+            -f db/demo/init_demo.sql
+          psql "$DSN_ORIGEN" -v ON_ERROR_STOP=1 -f db/demo/verificar_demo.sql
+
+      - name: Generar dump con pg_dump 18
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          docker run --rm --network host -e PGPASSWORD=innovalab postgres:18 \
+            pg_dump -h 127.0.0.1 -p 5432 -U innovalab -d origen > /tmp/demo_dump.sql
+          head -3 /tmp/demo_dump.sql
+          if grep -q '^\\restrict' /tmp/demo_dump.sql; then
+            echo "El dump incluye \\restrict (formato pg_dump 18)"
+          else
+            echo "::error::pg_dump no generó \\restrict; no se está probando el camino de PostgreSQL 18"
+            exit 1
+          fi
+
+      - name: Restaurar con el script
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          psql "$DSN_ORIGEN" -v ON_ERROR_STOP=1 -c "CREATE DATABASE restaurado"
+          ./scripts/restore_dump.sh /tmp/demo_dump.sql --dsn "$DSN_RESTAURADO"
+          psql "$DSN_RESTAURADO" -v ON_ERROR_STOP=1 -f db/demo/verificar_demo.sql
+
+      - name: Comparar origen y restaurado
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          for tabla in rubros_requisitos habilitaciones epok_fichas; do
+            origen=$(psql "$DSN_ORIGEN" -tAc "SELECT count(*) FROM $tabla")
+            restaurado=$(psql "$DSN_RESTAURADO" -tAc "SELECT count(*) FROM $tabla")
+            echo "$tabla: origen=$origen restaurado=$restaurado"
+            test "$origen" = "$restaurado"
+          done
+
+  restore-full:
+    name: Restore del dump completo (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.restaurar_dump_completo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: innovalab
+          POSTGRES_USER: innovalab
+          POSTGRES_PASSWORD: innovalab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U innovalab -d innovalab"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Bajar el dump si el checkout dejó el puntero LFS
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          if ! head -c 60 db/innovalab_dump.sql | grep -q "git-lfs.github.com"; then
+            echo "El dump real ya está presente."
+            exit 0
+          fi
+          echo "::warning::El checkout dejó el puntero LFS; reintentando con git lfs pull."
+          if ! command -v git-lfs >/dev/null 2>&1; then
+            echo "::error::git-lfs no está instalado en el runner, no se puede bajar el dump."
+            exit 1
+          fi
+          git lfs install --local
+          git lfs pull --include="db/innovalab_dump.sql"
+
+      - name: Verificar que Git LFS bajó el dump real
+        working-directory: ${{ env.DIR_DATOS }}
+        run: |
+          if head -c 60 db/innovalab_dump.sql | grep -q "git-lfs.github.com"; then
+            echo "::error::El dump sigue siendo un puntero LFS. Subí los objetos con: git lfs install && git lfs push --all origin main"
+            exit 1
+          fi
+          head -3 db/innovalab_dump.sql
+
+      - name: Restaurar dump completo
+        working-directory: ${{ env.DIR_DATOS }}
+        env:
+          DATABASE_URL: postgresql://innovalab:innovalab@127.0.0.1:5432/innovalab
+        run: ./scripts/restore_dump.sh --con-esquema
+
+      - name: Verificar conteos históricos
+        env:
+          DSN: postgresql://innovalab:innovalab@127.0.0.1:5432/innovalab
+          PGPASSWORD: innovalab
+        run: |
+          hab=$(psql "$DSN" -tAc "SELECT count(*) FROM habilitaciones")
+          epok=$(psql "$DSN" -tAc "SELECT count(*) FROM epok_fichas")
+          rubros=$(psql "$DSN" -tAc "SELECT count(*) FROM rubros_requisitos")
+          echo "habilitaciones=$hab epok_fichas=$epok rubros_requisitos=$rubros"
+          test "$hab" = "216991"
+          test "$epok" = "19608"
+          test "$rubros" = "12"
