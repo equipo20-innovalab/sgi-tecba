@@ -1,3 +1,0 @@
-data_analytics/innovalab/data/**/*.csv filter=lfs diff=lfs merge=lfs -text
-data_analytics/innovalab/data/**/*.geojson filter=lfs diff=lfs merge=lfs -text
-data_analytics/innovalab/db/innovalab_dump.sql filter=lfs diff=lfs merge=lfs -text

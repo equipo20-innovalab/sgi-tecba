@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avance por área y camino al MVP · SGI TECBA</title>
+<meta name="description" content="Diagnóstico del estado de cada área del SGI TECBA: qué tan avanzada está, cuánto le falta y qué bloquea el cierre del MVP.">
+<style>
+  :root{
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --ink:#101828;
+    --muted:#667085;
+    --line:#e4e7ec;
+    --navy:#0d2440;
+    --navy-2:#153453;
+    --green:#12805c;
+    --green-bg:#e7f6ef;
+    --amber:#9a6200;
+    --amber-bg:#fff5dc;
+    --red:#b42318;
+    --red-bg:#fdeceb;
+    --blue:#1d5fbf;
+    --blue-bg:#e8f0fe;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px -12px rgba(16,24,40,.18);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--ink);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue)}
+  h1,h2,h3{line-height:1.2;margin:0}
+  h2{font-size:1.45rem;letter-spacing:-.01em}
+  h3{font-size:1.02rem}
+  .muted{color:var(--muted)}
+  .small{font-size:.82rem}
+
+  /* ---------- header ---------- */
+  header.hero{
+    background:linear-gradient(140deg,var(--navy) 0%,var(--navy-2) 62%,#1c4a72 100%);
+    color:#fff;padding:44px 0 38px;border-bottom:4px solid #f3c64a;
+  }
+  .eyebrow{
+    text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;
+    color:#bcd3e8;margin-bottom:10px;font-weight:600;
+  }
+  header.hero h1{font-size:2.05rem;letter-spacing:-.02em;max-width:820px}
+  header.hero p.lead{color:#d7e3ef;max-width:780px;margin:12px 0 0;font-size:1rem}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:20px;font-size:.8rem;color:#b9cfe4}
+  .meta b{color:#fff;font-weight:600}
+
+  /* ---------- layout ---------- */
+  main{padding:34px 0 10px}
+  section{margin-bottom:38px}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .sec-head p{margin:0;max-width:720px;color:var(--muted);font-size:.9rem}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @media (max-width:960px){.g3,.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow);
+  }
+  .kpi{padding:18px 20px}
+  .kpi .label{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .kpi .value{font-size:2rem;font-weight:750;letter-spacing:-.02em;margin:6px 0 2px}
+  .kpi .hint{font-size:.8rem;color:var(--muted)}
+  .kpi .value small{font-size:1rem;font-weight:600;color:var(--muted)}
+
+  /* ---------- pills ---------- */
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:.72rem;font-weight:650;border:1px solid transparent;white-space:nowrap}
+  .p-ok{background:var(--green-bg);color:var(--green);border-color:#bfe6d6}
+  .p-mid{background:var(--blue-bg);color:var(--blue);border-color:#c9dbfa}
+  .p-warn{background:var(--amber-bg);color:var(--amber);border-color:#f0dda6}
+  .p-bad{background:var(--red-bg);color:var(--red);border-color:#f3c5c1}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+
+  /* ---------- progress ---------- */
+  .bar{height:9px;border-radius:999px;background:#e9edf3;overflow:hidden;margin:10px 0 6px}
+  .bar > span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#12805c,#31b07d)}
+  .bar.mid > span{background:linear-gradient(90deg,#1d5fbf,#4f8de8)}
+  .bar.warn > span{background:linear-gradient(90deg,#b7791f,#e3a83b)}
+  .bar.bad > span{background:linear-gradient(90deg,#a92018,#e0574c)}
+  .barrow{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted)}
+
+  /* ---------- hero score ---------- */
+  .score{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+  .donut{
+    --p:60;
+    width:150px;height:150px;border-radius:50%;flex:none;
+    background:conic-gradient(#31b07d calc(var(--p)*1%), #dde5ef 0);
+    display:grid;place-items:center;position:relative;
+  }
+  .donut::after{
+    content:"";position:absolute;inset:13px;border-radius:50%;background:#fff;
+    box-shadow:inset 0 1px 3px rgba(16,24,40,.08);
+  }
+  .donut .num{position:relative;z-index:1;text-align:center;line-height:1}
+  .donut .num b{font-size:2.3rem;letter-spacing:-.03em}
+  .donut .num span{display:block;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:6px}
+
+  /* ---------- table ---------- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:760px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:#f9fafc;font-weight:650}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#fbfcfe}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rank{font-weight:750;color:var(--muted);font-variant-numeric:tabular-nums}
+  .area-name{font-weight:650}
+
+  /* ---------- area cards ---------- */
+  .area{display:flex;flex-direction:column;gap:12px}
+  .area-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .area-top h3{margin:0}
+  .area .pct{font-weight:750;font-variant-numeric:tabular-nums}
+  .list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;font-size:.85rem}
+  .list li{display:flex;gap:8px;align-items:flex-start}
+  .list .ic{flex:none;font-weight:700;line-height:1.4}
+  .ok{color:var(--green)}
+  .gap{color:var(--amber)}
+  .next{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:.83rem}
+  .next b{color:var(--ink)}
+
+  /* ---------- priorities ---------- */
+  .col-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .prio{display:flex;flex-direction:column;gap:10px}
+  .task{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+  .task .t{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .task .t b{font-size:.88rem}
+  .task p{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
+  .effort{font-size:.72rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* ---------- roadmap ---------- */
+  .week{border-left:3px solid var(--blue);padding:2px 0 2px 16px;position:relative}
+  .week::before{content:"";position:absolute;left:-7px;top:8px;width:11px;height:11px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 2px var(--blue)}
+  .week h3{margin-bottom:4px}
+  .week ul{margin:8px 0 0;padding-left:18px;font-size:.85rem;color:#344054}
+  .week li{margin-bottom:4px}
+
+  /* ---------- misc ---------- */
+  .note{border-left:4px solid #f3c64a;background:#fffaeb;padding:14px 16px;border-radius:0 10px 10px 0;font-size:.86rem}
+  .grid-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:820px){.grid-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .metric b{display:block;font-size:1.25rem;letter-spacing:-.01em}
+  .metric span{font-size:.76rem;color:var(--muted)}
+  footer{border-top:1px solid var(--line);margin-top:10px;padding:22px 0 40px;color:var(--muted);font-size:.8rem}
+  .toc{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+  .toc a{color:#dbe8f5;text-decoration:none;border:1px solid rgba(255,255,255,.22);padding:5px 11px;border-radius:999px;font-size:.78rem;background:rgba(255,255,255,.06)}
+  .toc a:hover{background:rgba(255,255,255,.14)}
+  @media print{
+    body{background:#fff}
+    header.hero{background:#fff;color:#000;border-bottom:1px solid #ccc}
+    header.hero h1,header.hero p.lead,.meta,.meta b,.eyebrow,.toc a{color:#000}
+    .toc,.card,.table-wrap,.task{box-shadow:none}
+    section{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Informe de avance · SGI TECBA</div>
+    <h1>Qué tan avanzada está cada área y cuánto falta para cerrar el MVP</h1>
+    <p class="lead">
+      Diagnóstico medido sobre el código y los datos reales del repositorio: qué áreas están listas para demo,
+      cuáles tienen menos trabajo por delante y qué bloquea la entrega del producto mínimo viable.
+    </p>
+    <div class="meta">
+      <span>Corte: <b>30/10/2026</b></span>
+      <span>Commit: <b>48d86d2</b> (<code style="color:#dbe8f5">origin/main</code>)</span>
+      <span>Servicios verificados: <b>API 200</b> · <b>Frontend 200</b> · <b>PostgreSQL OK</b></span>
+    </div>
+    <nav class="toc" aria-label="Secciones">
+      <a href="#resumen">Resumen</a>
+      <a href="#ranking">Ranking por área</a>
+      <a href="#detalle">Detalle por área</a>
+      <a href="#faltantes">Qué falta</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#riesgos">Riesgos</a>
+      <a href="#metodo">Método</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= RESUMEN ================= -->
+  <section id="resumen">
+    <div class="sec-head">
+      <h2>Resumen ejecutivo</h2>
+      <p>El producto ya funciona de punta a punta sobre datos reales. Lo que falta no es funcionalidad nueva: es cerrar pruebas, despliegue, seguridad y QA.</p>
+    </div>
+
+    <div class="grid g4">
+      <div class="card kpi">
+        <div class="label">Avance global del MVP</div>
+        <div class="value">60<small>%</small></div>
+        <div class="hint">Promedio ponderado de 7 áreas</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Esfuerzo restante</div>
+        <div class="value">24<small> d</small></div>
+        <div class="hint">persona-días para P0 + P1</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Tiempo calendario</div>
+        <div class="value">3<small> sem</small></div>
+        <div class="hint">con 3–4 personas en paralelo</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Bloqueantes P0</div>
+        <div class="value">5</div>
+        <div class="hint">sin resolver no hay entrega</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="score">
+        <div class="donut" style="--p:60" role="img" aria-label="Avance global 60 por ciento">
+          <div class="num"><b>60%</b><span>MVP</span></div>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <h3 style="margin-bottom:6px">Dónde está parado el proyecto</h3>
+          <p class="muted" style="margin:0 0 14px;font-size:.9rem">
+            Datos y backend sostienen la demo; el frontend ya consume la API real. La deuda está concentrada
+            en lo que hace que un MVP sea entregable: pruebas automatizadas, entorno de despliegue, QA formal y seguridad.
+          </p>
+          <div class="grid-metrics">
+            <div class="metric"><b>11</b><span>endpoints activos</span></div>
+            <div class="metric"><b>4</b><span>páginas en frontend</span></div>
+            <div class="metric"><b>120</b><span>tests de datos</span></div>
+            <div class="metric"><b>0</b><span>tests de API/UI</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:16px">
+      <b>Lectura rápida:</b> el área más avanzada es <b>Datos y pipeline (85%)</b>. La que está más cerca de terminar
+      es también <b>Datos (≈2 días)</b>, seguida por <b>Documentación (≈2 días)</b>. El cuello de botella real es
+      <b>QA (12%)</b>, <b>Despliegue (30%)</b> y <b>Seguridad (20%)</b>.
+    </div>
+  </section>
+
+  <!-- ================= RANKING ================= -->
+  <section id="ranking">
+    <div class="sec-head">
+      <h2>Ranking por área</h2>
+      <p>Ordenado de mayor a menor avance. “Falta” es el esfuerzo estimado para dejar el área en condiciones de MVP (P0 + P1).</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Área</th>
+            <th>Avance</th>
+            <th>Estado</th>
+            <th>Falta</th>
+            <th>Principal bloqueo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="rank">1</td>
+            <td class="area-name">Datos y pipeline</td>
+            <td style="min-width:150px">
+              <div class="bar"><span style="width:85%"></span></div>
+              <div class="barrow"><span>85%</span><span>Más avanzada</span></div>
+            </td>
+            <td><span class="pill p-ok"><i class="dot"></i>Casi listo</span></td>
+            <td class="num">2–3 días</td>
+            <td>Cobertura SMP 61% y artefactos LFS</td>
+          </tr>
+          <tr>
+            <td class="rank">2</td>
+            <td class="area-name">Backend API</td>
+            <td style="min-width:150px">
+              <div class="bar mid"><span style="width:72%"></span></div>
+              <div class="barrow"><span>72%</span><span>Funcional</span></div>
+            </td>
+            <td><span class="pill p-mid"><i class="dot"></i>Funcional</span></td>
+            <td class="num">5–6 días</td>
+            <td>Sin tests y geocodificación con mock</td>
+          </tr>
+          <tr>
+            <td class="rank">3</td>
+            <td class="area-name">Frontend</td>
+            <td style="min-width:150px">
+              <div class="bar mid"><span style="width:63%"></span></div>
+              <div class="barrow"><span>63%</span><span>Demo lista</span></div>
+            </td>
+            <td><span class="pill p-mid"><i class="dot"></i>Demo lista</span></td>
+            <td class="num">4–6 días</td>
+            <td>Sin E2E, accesibilidad y código muerto</td>
+          </tr>
+          <tr>
+            <td class="rank">4</td>
+            <td class="area-name">Documentación</td>
+            <td style="min-width:150px">
+              <div class="bar warn"><span style="width:55%"></span></div>
+              <div class="barrow"><span>55%</span><span>Despareja</span></div>
+            </td>
+            <td><span class="pill p-warn"><i class="dot"></i>Despareja</span></td>
+            <td class="num">1–2 días</td>
+            <td>README raíz mínimo; tester y diseño vacíos</td>
+          </tr>
+          <tr>
+            <td class="rank">5</td>
+            <td class="area-name">Despliegue / DevOps</td>
+            <td style="min-width:150px">
+              <div class="bar bad"><span style="width:30%"></span></div>
+              <div class="barrow"><span>30%</span><span>Pendiente</span></div>
+            </td>
+            <td><span class="pill p-bad"><i class="dot"></i>Pendiente</span></td>
+            <td class="num">4–5 días</td>
+            <td>Sin Dockerfile ni entorno de staging</td>
+          </tr>
+          <tr>
+            <td class="rank">6</td>
+            <td class="area-name">Seguridad</td>
+            <td style="min-width:150px">
+              <div class="bar bad"><span style="width:20%"></span></div>
+              <div class="barrow"><span>20%</span><span>Pendiente</span></div>
+            </td>
+            <td><span class="pill p-bad"><i class="dot"></i>Pendiente</span></td>
+            <td class="num">2–3 días</td>
+            <td>Sin auth, CORS de desarrollo y token expuesto</td>
+          </tr>
+          <tr>
+            <td class="rank">7</td>
+            <td class="area-name">QA / tester</td>
+            <td style="min-width:150px">
+              <div class="bar bad"><span style="width:12%"></span></div>
+              <div class="barrow"><span>12%</span><span>Sin empezar</span></div>
+            </td>
+            <td><span class="pill p-bad"><i class="dot"></i>Sin empezar</span></td>
+            <td class="num">4–6 días</td>
+            <td>Solo existe un README vacío en <code>tester/</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= DETALLE ================= -->
+  <section id="detalle">
+    <div class="sec-head">
+      <h2>Detalle por área</h2>
+      <p>Evidencia concreta de lo hecho y de lo que falta. Los porcentajes combinan funcionalidad, pruebas, documentación y operación.</p>
+    </div>
+
+    <div class="grid g3">
+
+      <!-- DATOS -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Datos y pipeline</h3>
+            <span class="pill p-ok"><i class="dot"></i>Más avanzada</span>
+          </div>
+          <div class="pct">85%</div>
+        </div>
+        <div class="bar"><span style="width:85%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> 4 datasets cargados y verificados: 216.991 habilitaciones, 19.608 fichas EPOK, 318.126 parcelas del Código Urbanístico y 12 requisitos.</li>
+          <li><span class="ic ok">✓</span> Pipeline reproducible (5.291 líneas), fixture demo 1.0.0 y <b>120 tests</b> en 9 módulos.</li>
+          <li><span class="ic ok">✓</span> 2 workflows de CI: refresh semanal y restore con docker compose.</li>
+          <li><span class="ic gap">!</span> Cobertura por SMP del 61,4% en habilitaciones; solo 37,9% cruza con EPOK.</li>
+          <li><span class="ic gap">!</span> Los CSV están en Git LFS y no son reproducibles en esta máquina (falta <code>git-lfs</code>).</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> documentar límites de cobertura y automatizar el refresh con validación de conteos.</div>
+      </article>
+
+      <!-- BACKEND -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Backend API</h3>
+            <span class="pill p-mid"><i class="dot"></i>Funcional</span>
+          </div>
+          <div class="pct">72%</div>
+        </div>
+        <div class="bar mid"><span style="width:72%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> 11 endpoints activos (consulta, catastro, rubros, habilitaciones, mapa, cobertura) verificados con datos reales.</li>
+          <li><span class="ic ok">✓</span> Respuestas en menos de 1 s en consultas típicas; Swagger disponible.</li>
+          <li><span class="ic gap">!</span> <b>0 tests propios</b>: los de consulta y urbanismo se eliminaron el 29/10.</li>
+          <li><span class="ic gap">!</span> Geocodificación con <b>mock hardcodeado</b> para “Corrientes 2500”.</li>
+          <li><span class="ic gap">!</span> Regresión de rubros: “Cafeteria” ya no matchea “Cafetería”.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> suite de tests + quitar el mock + corregir matching de rubros.</div>
+      </article>
+
+      <!-- FRONTEND -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Frontend</h3>
+            <span class="pill p-mid"><i class="dot"></i>Demo lista</span>
+          </div>
+          <div class="pct">63%</div>
+        </div>
+        <div class="bar mid"><span style="width:63%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> 4 páginas funcionando (Inicio, Rubros, Cobertura, Fuentes) y consumo real de la API.</li>
+          <li><span class="ic ok">✓</span> Mapa satelital MapLibre, diseño responsivo y sistema Obelisco V2.</li>
+          <li><span class="ic gap">!</span> Sin tests ni E2E; <code>ConfirmacionView</code> y <code>TramitesView</code> quedaron sin uso.</li>
+          <li><span class="ic gap">!</span> Accesibilidad parcial (17 atributos <code>aria</code> en 2.318 líneas).</li>
+          <li><span class="ic gap">!</span> Falta pulir estados vacíos/error y validar en móvil real.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> auditoría de accesibilidad, limpieza de código muerto y pruebas de flujo.</div>
+      </article>
+
+      <!-- DOCS -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Documentación</h3>
+            <span class="pill p-warn"><i class="dot"></i>Despareja</span>
+          </div>
+          <div class="pct">55%</div>
+        </div>
+        <div class="bar warn"><span style="width:55%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> Data documentado a fondo (3.370 palabras) y backend con guía de endpoints (2.018).</li>
+          <li><span class="ic ok">✓</span> Frontend con guía de instalación y stack.</li>
+          <li><span class="ic gap">!</span> README raíz de 76 palabras: no explica cómo correr el sistema completo.</li>
+          <li><span class="ic gap">!</span> <code>tester/README.md</code> y <code>desing/README.md</code> están vacíos.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> README raíz con arquitectura, variables de entorno y pasos de demo.</div>
+      </article>
+
+      <!-- DEVOPS -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Despliegue / DevOps</h3>
+            <span class="pill p-bad"><i class="dot"></i>Pendiente</span>
+          </div>
+          <div class="pct">30%</div>
+        </div>
+        <div class="bar bad"><span style="width:30%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> Docker compose para la base de datos de analítica y dump restaurable.</li>
+          <li><span class="ic gap">!</span> Sin Dockerfile de API ni de frontend.</li>
+          <li><span class="ic gap">!</span> Sin staging, dominio, backups ni estrategia de entornos.</li>
+          <li><span class="ic gap">!</span> CI solo cubre datos: backend y frontend no compilan en pipeline.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> Dockerfiles, compose completo y un staging con datos demo.</div>
+      </article>
+
+      <!-- SEGURIDAD -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Seguridad</h3>
+            <span class="pill p-bad"><i class="dot"></i>Pendiente</span>
+          </div>
+          <div class="pct">20%</div>
+        </div>
+        <div class="bar bad"><span style="width:20%"></span></div>
+        <ul class="list">
+          <li><span class="ic gap">!</span> Sin autenticación ni autorización en la API.</li>
+          <li><span class="ic gap">!</span> CORS apuntando a <code>localhost</code> de desarrollo.</li>
+          <li><span class="ic gap">!</span> Token PAT expuesto en el historial, pendiente de revocar.</li>
+          <li><span class="ic gap">!</span> Sin rate limiting ni validación de abuso.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> revocar credenciales, definir CORS por entorno y API key básica.</div>
+      </article>
+
+      <!-- QA -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>QA / tester</h3>
+            <span class="pill p-bad"><i class="dot"></i>Sin empezar</span>
+          </div>
+          <div class="pct">12%</div>
+        </div>
+        <div class="bar bad"><span style="width:12%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> Existen pruebas de datos (120) que cubren el pipeline.</li>
+          <li><span class="ic gap">!</span> <code>tester/</code> solo tiene un README vacío: no hay plan de pruebas.</li>
+          <li><span class="ic gap">!</span> Sin casos de aceptación por historia de usuario.</li>
+          <li><span class="ic gap">!</span> Sin pruebas manuales documentadas ni regresión.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> plan de pruebas con los 4 flujos críticos y matriz de aceptación.</div>
+      </article>
+
+      <!-- CAPACIDADES -->
+      <article class="card area">
+        <div class="area-top">
+          <div>
+            <h3>Producto / alcance</h3>
+            <span class="pill p-mid"><i class="dot"></i>5 de 7</span>
+          </div>
+          <div class="pct">70%</div>
+        </div>
+        <div class="bar mid"><span style="width:70%"></span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span> Listas: dónde conviene abrir, ficha del inmueble, competencia por comuna, trámite histórico y origen del dato.</li>
+          <li><span class="ic gap">!</span> Parcial: ubicación exacta (USIG caído; se usa catastro).</li>
+          <li><span class="ic gap">!</span> Parcial: evolución temporal (fecha de habilitación al 71%).</li>
+          <li><span class="ic gap">!</span> Fuera del MVP: viabilidad por Código Urbanístico y RAG de normativa.</li>
+        </ul>
+        <div class="next"><b>Siguiente paso:</b> congelar alcance del MVP y dejar fases 2/3 explícitamente afuera.</div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ================= FALTANTES ================= -->
+  <section id="faltantes">
+    <div class="sec-head">
+      <h2>Qué falta para finalizar el MVP</h2>
+      <p>P0 bloquea la entrega, P1 completa la experiencia, P2 es evolución posterior. Esfuerzos en persona-días.</p>
+    </div>
+
+    <div class="grid g3">
+      <div>
+        <div class="col-head"><span class="pill p-bad"><i class="dot"></i>P0 · Bloqueante</span><span class="small muted">11 días</span></div>
+        <div class="prio">
+          <div class="task"><div class="t"><b>1. Tests de API + CI</b><span class="effort">3 d</span></div><p>Cubrir consulta, catastro, rubros, mapa y cobertura; pipeline que corra en cada push.</p></div>
+          <div class="task"><div class="t"><b>2. Quitar la geocodificación mock</b><span class="effort">1 d</span></div><p>Resolver direcciones solo con catastro local y fallback controlado; eliminar coordenadas fijas.</p></div>
+          <div class="task"><div class="t"><b>3. QA de los 4 flujos críticos</b><span class="effort">3 d</span></div><p>Consulta, catálogo de rubros, cobertura y mapa: casos de aceptación y regresión.</p></div>
+          <div class="task"><div class="t"><b>4. Despliegue en staging</b><span class="effort">3 d</span></div><p>Dockerfiles de API y web, compose completo, base con datos demo y URL accesible.</p></div>
+          <div class="task"><div class="t"><b>5. Seguridad mínima</b><span class="effort">2 d</span></div><p>Revocar PAT, CORS por entorno, rate limiting y control de acceso básico.</p></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="col-head"><span class="pill p-warn"><i class="dot"></i>P1 · Completar</span><span class="small muted">9 días</span></div>
+        <div class="prio">
+          <div class="task"><div class="t"><b>6. Corregir matching de rubros</b><span class="effort">0,5 d</span></div><p>Volver a una normalización tolerante a tildes y mayúsculas.</p></div>
+          <div class="task"><div class="t"><b>7. Accesibilidad y móvil</b><span class="effort">2 d</span></div><p>Contraste, foco, etiquetas y prueba en dispositivos reales.</p></div>
+          <div class="task"><div class="t"><b>8. Estados vacíos y errores</b><span class="effort">1,5 d</span></div><p>Mensajes claros cuando falta altura, no hay datos o la API falla.</p></div>
+          <div class="task"><div class="t"><b>9. Limpieza y documentación</b><span class="effort">2 d</span></div><p>Eliminar vistas sin uso y actualizar README raíz con arquitectura y demo.</p></div>
+          <div class="task"><div class="t"><b>10. Unificar esquema de datos</b><span class="effort">3 d</span></div><p>Una sola fuente de verdad entre <code>data_analytics</code> y <code>backend-api</code>.</p></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="col-head"><span class="pill p-mid"><i class="dot"></i>P2 · Evolución</span><span class="small muted">fuera del MVP</span></div>
+        <div class="prio">
+          <div class="task"><div class="t"><b>11. Viabilidad por Código Urbanístico</b></div><p>Exponer zonificación y FOT por parcela; hoy el dato está cargado pero no es parte del MVP.</p></div>
+          <div class="task"><div class="t"><b>12. RAG de normativa</b></div><p>Respuestas asistidas sobre el Código de Habilitaciones.</p></div>
+          <div class="task"><div class="t"><b>13. USIG en vivo</b></div><p>Normalización oficial de direcciones cuando el servicio esté estable.</p></div>
+          <div class="task"><div class="t"><b>14. Optimización de mapas</b></div><p>Clustering y cache de parcelas para volúmenes mayores.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ROADMAP ================= -->
+  <section id="roadmap">
+    <div class="sec-head">
+      <h2>Camino propuesto: 3 semanas</h2>
+      <p>Secuencia pensada para que cada semana deje algo demostrable. Asume 3–4 personas con trabajo paralelo.</p>
+    </div>
+
+    <div class="grid g3">
+      <div class="card">
+        <div class="week">
+          <h3>Semana 1 · Cierre técnico</h3>
+          <span class="small muted">Días 1–5</span>
+          <ul>
+            <li>Tests de API y CI en cada push</li>
+            <li>Eliminar geocodificación mock</li>
+            <li>Corregir matching de rubros</li>
+            <li>Dockerfiles de API y frontend</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="week">
+          <h3>Semana 2 · QA y entorno</h3>
+          <span class="small muted">Días 6–10</span>
+          <ul>
+            <li>Plan de pruebas y casos de aceptación</li>
+            <li>Staging con datos demo</li>
+            <li>Accesibilidad y prueba móvil</li>
+            <li>Seguridad mínima y CORS</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="week">
+          <h3>Semana 3 · Entrega</h3>
+          <span class="small muted">Días 11–15</span>
+          <ul>
+            <li>Regresión completa de los 4 flujos</li>
+            <li>Documentación y criterios de cierre</li>
+            <li>Demo final con datos reales</li>
+            <li>Backlog de fase 2 acordado</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:16px">
+      <b>Condición de cierre del MVP:</b> los 4 flujos funcionando en un entorno accesible,
+      sin errores 500 por esquema, con pruebas automatizadas de API y un plan de QA ejecutado.
+      La viabilidad por Código Urbanístico y el RAG quedan explícitamente fuera.
+    </div>
+  </section>
+
+  <!-- ================= RIESGOS ================= -->
+  <section id="riesgos">
+    <div class="sec-head">
+      <h2>Riesgos que pueden mover la fecha</h2>
+      <p>Ordenados por impacto sobre el cierre.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h3>Alto</h3>
+        <ul class="list" style="margin-top:10px">
+          <li><span class="ic gap">!</span> <b>Sin tests de API:</b> cualquier cambio puede romper la demo sin aviso.</li>
+          <li><span class="ic gap">!</span> <b>Base temporal:</b> el entorno vive en un cluster efímero; si se cae, se pierde la demo.</li>
+          <li><span class="ic gap">!</span> <b>Artefactos LFS:</b> los CSV no se pueden reconstruir sin <code>git-lfs</code>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Medio</h3>
+        <ul class="list" style="margin-top:10px">
+          <li><span class="ic gap">!</span> <b>Contrato de API cambiante:</b> el frontend depende de campos nuevos de <code>/consulta</code>.</li>
+          <li><span class="ic gap">!</span> <b>Cobertura de datos:</b> 61% de SMP y 38% de cruce con EPOK limitan respuestas.</li>
+          <li><span class="ic gap">!</span> <b>Dependencia externa:</b> USIG inestable obliga a mantener fallbacks.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= METODO ================= -->
+  <section id="metodo">
+    <div class="sec-head">
+      <h2>Cómo se calculó</h2>
+      <p>Transparencia sobre los números para que puedan discutirse y ajustarse.</p>
+    </div>
+
+    <div class="card">
+      <div class="grid g2">
+        <div>
+          <h3>Fórmula de avance por área</h3>
+          <ul class="list" style="margin-top:8px">
+            <li><span class="ic">1.</span> Funcionalidad implementada: <b>40%</b></li>
+            <li><span class="ic">2.</span> Pruebas y validación: <b>25%</b></li>
+            <li><span class="ic">3.</span> Documentación: <b>15%</b></li>
+            <li><span class="ic">4.</span> Operación y despliegue: <b>20%</b></li>
+          </ul>
+          <h3 style="margin-top:16px">Peso de cada área en el global</h3>
+          <p class="small muted" style="margin:6px 0 0">Datos 25% · Backend 25% · Frontend 20% · QA 10% · DevOps 10% · Documentación 5% · Seguridad 5%</p>
+        </div>
+        <div>
+          <h3>Evidencia usada</h3>
+          <ul class="list" style="margin-top:8px">
+            <li><span class="ic ok">✓</span> Conteos reales de la base: 216.991 / 19.608 / 318.126 / 12.</li>
+            <li><span class="ic ok">✓</span> 11 endpoints respondiendo 200 y 4 páginas sin errores de consola.</li>
+            <li><span class="ic ok">✓</span> Métricas de cobertura del pipeline (<code>urbanismo_cobertura.json</code>).</li>
+            <li><span class="ic ok">✓</span> Historial git hasta <code>48d86d2</code> y estructura de tests/CI.</li>
+          </ul>
+          <p class="small muted" style="margin-top:12px">Los días son estimaciones de esfuerzo, no compromisos de fecha. Ajustar con el equipo antes de publicar.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    Informe generado el 30/10/2026 sobre el repositorio <code>equipo20-innovalab/sgi-tecba</code> (commit <code>48d86d2</code>).
+    Los porcentajes son una estimación basada en evidencia verificable del código y los datos; no reemplazan la planificación del equipo.
+  </div>
+</footer>
+
+</body>
+</html>

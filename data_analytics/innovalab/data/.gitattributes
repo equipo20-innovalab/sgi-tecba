@@ -1,0 +1,14 @@
+# Reglas locales de la carpeta de datos.
+# Reflejan lo que ya define el .gitattributes de la raíz para data/** y agregan
+# una excepción explícita para los informes HTML, que deben viajar como texto.
+#
+# Los CSV y GeoJSON pesados van a Git LFS; los informes y metadatos (.json, .md,
+# .html) se versionan como texto normal para que el diff sea legible.
+
+*.csv     filter=lfs diff=lfs merge=lfs -text
+*.geojson filter=lfs diff=lfs merge=lfs -text
+
+# Informes y artefactos legibles: nunca LFS.
+*.html text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
