@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
 from typing import List
+
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "TECBA - Sistema de Gestión Inteligente"
@@ -12,6 +14,9 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173"
+
+    # Directorio de datos locales usado por las rutas del mapa.
+    INNOVALAB_DATA_DIR: Path | None = None
     
     @property
     def cors_origins_list(self) -> List[str]:

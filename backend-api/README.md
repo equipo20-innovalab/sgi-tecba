@@ -51,6 +51,7 @@ backend-api/
 │   ├── models/                    # SQLAlchemy models
 │   ├── schemas/                   # Pydantic schemas
 │   └── services/                  # Lógica de negocio
+├── run.sh                         # Inicio rápido para Git Bash en Windows
 ├── db/
 │   ├── schema.sql                 # DDL (CREATE TABLE, índices, extensiones)
 │   └── seed/
@@ -130,6 +131,8 @@ Editá `.env`:
 DATABASE_URL=postgresql+psycopg://tecba_user:tecba_password@localhost:5433/innovalab
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173
+# Raíz de data (debe contener geo/comunas.geojson).
+INNOVALAB_DATA_DIR=/c/ruta/a/sgi-tecba/data_analytics/innovalab/data
 ```
 
 > ⚠️ **Ojo con el driver `+psycopg`** (psycopg v3). Si ponés `+psycopg2` va a fallar.
@@ -199,9 +202,15 @@ Esperado:
 
 ### 8. Levantar el backend
 
+Desde `backend-api`, en **Git Bash para Windows**:
+
 ```bash
-uvicorn app.main:app --reload --port 8000
+bash run.sh
 ```
+
+El script usa `.venv/Scripts/python.exe`, carga la configuración de `.env` y
+arranca Uvicorn con recarga automática en el puerto `8000`. Dejá esta terminal
+abierta mientras usás la API.
 
 **Salida esperada:**
 ```
@@ -289,10 +298,11 @@ curl "http://localhost:8000/api/v1/catastro/001-001-008A"
 | GET | `/api/v1/mapa/comunas` | Límites GeoJSON de las comunas |
 | GET | `/api/v1/mapa/parcelas` | Parcelas EPOK georreferenciadas con conteo e historial de rubros |
 
-El mapa actualiza las parcelas según el área visible. El backend también necesita
-acceso a `data/geo/comunas.geojson`; por defecto busca la carpeta `data` hermana
-del clon `sgi-tecba`. Si está en otra ubicación, configúrala con
-`INNOVALAB_DATA_DIR` en `backend-api/.env`.
+El mapa actualiza las parcelas según el área visible. El backend necesita acceso
+a `geo/comunas.geojson`. `INNOVALAB_DATA_DIR` debe indicar la carpeta raíz `data`
+que contiene `geo/`. Si no se configura, por defecto busca la carpeta `data`
+hermana del clon `sgi-tecba`. El backend carga esta variable desde
+`backend-api/.env`, junto con `DATABASE_URL`.
 
 ### Código Urbanístico completo por SMP
 
@@ -341,12 +351,22 @@ curl -X POST "http://localhost:8000/api/v1/consulta" \
 
 ### Desarrollo (con hot reload)
 
-```bash
-source .venv/Scripts/activate      # Windows
-# o
-source .venv/bin/activate           # Linux/WSL
+**En Git Bash (Windows), desde la raíz del repositorio:**
 
-uvicorn app.main:app --reload --port 8000
+```bash
+cd backend-api
+bash run.sh
+```
+
+El script usa el entorno virtual `.venv`, lee la configuración de `.env` y
+arranca el servidor en `http://127.0.0.1:8000`. No hace falta activar el entorno
+virtual manualmente.
+
+**En Linux/WSL:**
+
+```bash
+cd backend-api
+.venv/bin/python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Producción (sin reload)
@@ -436,6 +456,15 @@ docker start tecba-postgres
 # Si tenés otro Postgres en 5432, verificá que el contenedor esté en 5433:
 docker port tecba-postgres
 ```
+
+### `No se encontró la capa GeoJSON de comunas`
+
+**Causa:** `INNOVALAB_DATA_DIR` no apunta a la carpeta `data` que contiene
+`geo/comunas.geojson`, o el archivo no está presente.
+
+**Solución:** corregir `INNOVALAB_DATA_DIR` en `backend-api/.env` y reiniciar
+Uvicorn. En Git Bash sobre Windows, una ruta tiene esta forma:
+`/c/ruta/a/sgi-tecba/data_analytics/innovalab/data`.
 
 ### `ModuleNotFoundError: No module named 'sqlalchemy'`
 
