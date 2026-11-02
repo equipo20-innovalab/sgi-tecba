@@ -1,7 +1,10 @@
-import React from 'react';
 import MapView from './MapView';
 
-export default function TramitesView({ direccionBusqueda, onBackToConfirmacion }) {
+export default function TramitesView({
+  direccionBusqueda,
+  ubicacion,
+  onBackToConfirmacion,
+}) {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-4">
       <button 
@@ -23,8 +26,11 @@ export default function TramitesView({ direccionBusqueda, onBackToConfirmacion }
             </p>
             
             {/* Contenedor del Mapa */}
-            <div className="h-48 w-full mb-4">
-              <MapView direccion={direccionBusqueda || "Calle Corrientes 2500"} />
+            <div className="h-48 w-full mb-4 overflow-hidden rounded-xl">
+              <MapView
+                location={ubicacion}
+                containerHeightClass="h-full"
+              />
             </div>
 
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">

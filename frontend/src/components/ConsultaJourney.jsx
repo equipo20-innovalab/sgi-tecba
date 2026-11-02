@@ -47,6 +47,7 @@ export function ConsultaJourney({
                     <AvisoDatosDePrueba />
                     <ConfirmacionView
                         direccionBusqueda={direccionConfirmacion}
+                        ubicacion={data?.ubicacion}
                         onBack={() => setVista(VISTAS.RESULTADO)}
                         onVerTramites={() => setVista(VISTAS.TRAMITES)}
                     />
@@ -58,6 +59,7 @@ export function ConsultaJourney({
                     <AvisoDatosDePrueba />
                     <TramitesView
                         direccionBusqueda={direccionConfirmacion}
+                        ubicacion={data?.ubicacion}
                         onBackToConfirmacion={() => setVista(VISTAS.CONFIRMACION)}
                     />
                 </>

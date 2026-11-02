@@ -136,7 +136,7 @@ function boundsDeGeoJSON(geojson) {
     ];
 }
 
-export default function MapView({ location }) {
+export default function MapView({ location, containerHeightClass = 'h-[400px]' }) {
     const containerRef = useRef(null);
     const mapRef = useRef(null);
     const markerRef = useRef(null);
@@ -249,7 +249,7 @@ export default function MapView({ location }) {
     }, [location]);
 
     return (
-        <div className="relative w-full h-[400px] rounded-xl overflow-hidden shadow-lg border border-slate-200">
+        <div className={`relative w-full ${containerHeightClass} rounded-xl overflow-hidden shadow-lg border border-slate-200`}>
             <div
                 ref={containerRef}
                 aria-label="Mapa de la Ciudad de Buenos Aires"
