@@ -421,9 +421,20 @@ Alertas: `SIN_PADRON`, `SIN_FICHAS`, `SIN_ACTUALIZACION`, `SLA_VENCIDO`, `COBERT
 
 ## Automatización
 
+[![Refresh analytics database](https://github.com/equipo20-innovalab/sgi-tecba/actions/workflows/analytics-refresh.yml/badge.svg?branch=main)](https://github.com/equipo20-innovalab/sgi-tecba/actions/workflows/analytics-refresh.yml)
+
 El workflow [`.github/workflows/analytics-refresh.yml`](../../.github/workflows/analytics-refresh.yml) permite ejecución manual, corre los lunes a las **09:17 UTC** y se activa con cambios en `data/raw/`, `data/geo/`, `src/`, `db/schema.sql`, `db/seed/` o `requirements.txt` dentro de `data_analytics/innovalab`.
 
-El job instala dependencias, corre `pytest` y ejecuta `python -m src.run_pipeline` con `DATABASE_URL` tomado de los secretos del repositorio. El esquema debe existir previamente y el job no crea infraestructura ni consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
+El job levanta su **propia base efímera** (`postgres:18` como service container), así que no depende de secretos ni de infraestructura externa:
+
+| Paso | Qué hace |
+|---|---|
+| Esquema | Aplica `db/schema.sql` con `psql -v ON_ERROR_STOP=1`. |
+| Pruebas | Corre `pytest` (120 pruebas). |
+| Pipeline | Ejecuta `python -m src.run_pipeline` contra el `DATABASE_URL` local del job. |
+| Verificación | Exige conteos mayores a cero en `habilitaciones`, `codigo_urbanistico` y `urbanismo_smp`. |
+
+Última corrida verificada (2026-11-03, commit `520d317`): **120 pruebas en verde**, **216.991 habilitaciones**, **318.126 parcelas del CU** y **335.569 SMP** en el panel urbanístico. El job no consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
 
 El enriquecimiento EPOK **no** forma parte del workflow semanal: depende de la API del GCBA y puede tardar. Se ejecuta aparte con `python src/enriquecer_epok.py` y deja el dashboard y las alertas en `data/processed/`.
 
