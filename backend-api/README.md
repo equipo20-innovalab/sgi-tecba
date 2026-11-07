@@ -51,6 +51,7 @@ backend-api/
 │   ├── models/                    # SQLAlchemy models
 │   ├── schemas/                   # Pydantic schemas
 │   └── services/                  # Lógica de negocio
+├── run.sh                         # Inicio rápido para Git Bash en Windows
 ├── db/
 │   ├── schema.sql                 # DDL (CREATE TABLE, índices, extensiones)
 │   └── seed/
@@ -93,22 +94,22 @@ cd "/ruta/a/backend-api"
 
 **En Git Bash (Windows):**
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate
+py -3.11 -m venv .venv-py311
+source .venv-py311/Scripts/activate
 ```
 
 **En WSL/Ubuntu:**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv-py311
+source .venv-py311/bin/activate
 ```
 
 **Verificar que se activó:**
 ```bash
-which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python)
+which python           # Debe apuntar a .venv-py311/Scripts/python (o .venv-py311/bin/python)
 ```
 
-> 💡 **Tip:** si abrís una terminal nueva, **el venv NO está activado**. Volvé a correr `source .venv/Scripts/activate` (o `.venv/bin/activate`).
+> 💡 **Tip:** si abrís una terminal nueva, **el venv NO está activado**. Volvé a correr `source .venv-py311/Scripts/activate` (o `.venv-py311/bin/activate`).
 
 ### 3. Instalar dependencias
 
@@ -116,7 +117,7 @@ which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python
 pip install -r requirements.txt
 ```
 
-El archivo de dependencias fija `psycopg[binary]==3.3.6`. Usa Python 3.12 o 3.13 e instala siempre desde `requirements.txt` para mantener esa versión.
+El archivo de dependencias fija `psycopg[binary]==3.3.6`. Para este entorno usa Python 3.11.1 (`py -3.11` en Windows) e instala siempre desde `requirements.txt`. Evita Python 3.15.0rc1: algunas dependencias todavía no ofrecen wheels para esa versión preliminar.
 
 ### 4. Configurar variables de entorno
 
@@ -130,6 +131,8 @@ Editá `.env`:
 DATABASE_URL=postgresql+psycopg://tecba_user:tecba_password@localhost:5433/innovalab
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173
+# Raíz de data (debe contener geo/comunas.geojson).
+INNOVALAB_DATA_DIR=/c/ruta/a/sgi-tecba/data_analytics/innovalab/data
 ```
 
 > ⚠️ **Ojo con el driver `+psycopg`** (psycopg v3). Si ponés `+psycopg2` va a fallar.
@@ -199,9 +202,15 @@ Esperado:
 
 ### 8. Levantar el backend
 
+Desde `backend-api`, en **Git Bash para Windows**:
+
 ```bash
-uvicorn app.main:app --reload --port 8000
+bash run.sh
 ```
+
+El script usa `.venv-py311/Scripts/python.exe`, carga la configuración de `.env` y
+arranca Uvicorn con recarga automática en el puerto `8000`. Dejá esta terminal
+abierta mientras usás la API.
 
 **Salida esperada:**
 ```
@@ -289,10 +298,11 @@ curl "http://localhost:8000/api/v1/catastro/001-001-008A"
 | GET | `/api/v1/mapa/comunas` | Límites GeoJSON de las comunas |
 | GET | `/api/v1/mapa/parcelas` | Parcelas EPOK georreferenciadas con conteo e historial de rubros |
 
-El mapa actualiza las parcelas según el área visible. El backend también necesita
-acceso a `data/geo/comunas.geojson`; por defecto busca la carpeta `data` hermana
-del clon `sgi-tecba`. Si está en otra ubicación, configúrala con
-`INNOVALAB_DATA_DIR` en `backend-api/.env`.
+El mapa actualiza las parcelas según el área visible. El backend necesita acceso
+a `geo/comunas.geojson`. `INNOVALAB_DATA_DIR` debe indicar la carpeta raíz `data`
+que contiene `geo/`. Si no se configura, por defecto busca la carpeta `data`
+hermana del clon `sgi-tecba`. El backend carga esta variable desde
+`backend-api/.env`, junto con `DATABASE_URL`.
 
 ### Código Urbanístico completo por SMP
 
@@ -341,12 +351,22 @@ curl -X POST "http://localhost:8000/api/v1/consulta" \
 
 ### Desarrollo (con hot reload)
 
-```bash
-source .venv/Scripts/activate      # Windows
-# o
-source .venv/bin/activate           # Linux/WSL
+**En Git Bash (Windows), desde la raíz del repositorio:**
 
-uvicorn app.main:app --reload --port 8000
+```bash
+cd backend-api
+bash run.sh
+```
+
+El script usa el entorno virtual `.venv-py311`, lee la configuración de `.env` y
+arranca el servidor en `http://127.0.0.1:8000`. No hace falta activar el entorno
+virtual manualmente.
+
+**En Linux/WSL:**
+
+```bash
+cd backend-api
+.venv-py311/bin/python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Producción (sin reload)
@@ -437,16 +457,25 @@ docker start tecba-postgres
 docker port tecba-postgres
 ```
 
+### `No se encontró la capa GeoJSON de comunas`
+
+**Causa:** `INNOVALAB_DATA_DIR` no apunta a la carpeta `data` que contiene
+`geo/comunas.geojson`, o el archivo no está presente.
+
+**Solución:** corregir `INNOVALAB_DATA_DIR` en `backend-api/.env` y reiniciar
+Uvicorn. En Git Bash sobre Windows, una ruta tiene esta forma:
+`/c/ruta/a/sgi-tecba/data_analytics/innovalab/data`.
+
 ### `ModuleNotFoundError: No module named 'sqlalchemy'`
 
 **Causa:** el venv no está activado.
 
 **Solución:**
 ```bash
-source .venv/Scripts/activate    # Windows
+source .venv-py311/Scripts/activate    # Windows
 # o
-source .venv/bin/activate         # Linux/WSL
-which python                      # debe apuntar a .venv
+source .venv-py311/bin/activate         # Linux/WSL
+which python                      # debe apuntar a .venv-py311
 ```
 
 ### `psycopg.OperationalError: password authentication failed`
@@ -479,8 +508,8 @@ which python                      # debe apuntar a .venv
 
 **Solución:**
 1. `Ctrl + Shift + P` → **`Python: Select Interpreter`**
-2. Elegir `./.venv/Scripts/python.exe`
-3. Verificar en la barra inferior: `Python 3.14.x ('.venv': venv)`
+2. Elegir `./.venv-py311/Scripts/python.exe`
+3. Verificar en la barra inferior: `Python 3.11.x ('.venv-py311': venv)`
 
 ### `port is already allocated` al levantar el contenedor
 
