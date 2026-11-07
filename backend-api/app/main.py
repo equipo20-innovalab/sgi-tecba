@@ -2,7 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1.endpoints import health, rubros, habilitaciones, catastro, consulta, mapa
+from app.api.v1.endpoints import (
+    catastro,
+    chat,
+    consulta,
+    habilitaciones,
+    health,
+    mapa,
+    rubros,
+)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,6 +35,7 @@ app.include_router(habilitaciones.router, prefix=settings.API_V1_STR, tags=["hab
 app.include_router(catastro.router, prefix=settings.API_V1_STR, tags=["catastro"])
 app.include_router(consulta.router, prefix=settings.API_V1_STR, tags=["consulta"])
 app.include_router(mapa.router, prefix=settings.API_V1_STR, tags=["mapa"])
+app.include_router(chat.router, prefix=settings.API_V1_STR, tags=["chat"])
 
 @app.get("/")
 def root():

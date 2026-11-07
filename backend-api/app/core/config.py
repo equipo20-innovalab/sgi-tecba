@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    # Chat conversacional (Groq)
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+
     # Directorio de datos locales usado por las rutas del mapa.
     INNOVALAB_DATA_DIR: Path | None = None
     

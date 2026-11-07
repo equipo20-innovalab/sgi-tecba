@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import AsistenteSGI from './AsistenteSGI';
 import MapView from './MapView';
 
 export default function TramitesView({
@@ -5,6 +7,9 @@ export default function TramitesView({
   ubicacion,
   onBackToConfirmacion,
 }) {
+  const [rubro, setRubro] = useState('Cafetería');
+  const direccion = direccionBusqueda || 'Calle Corrientes 2500';
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-4">
       <button 
@@ -14,7 +19,7 @@ export default function TramitesView({
         ← Volver
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 items-stretch gap-8 lg:grid-cols-12">
         
         {/* COLUMNA IZQUIERDA: Ubicación y Mapa */}
         <div className="lg:col-span-5 flex flex-col gap-6">
@@ -40,45 +45,45 @@ export default function TramitesView({
 
           <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Rubro</label>
-            <select className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-700 outline-none">
+            <select
+              value={rubro}
+              onChange={(event) => setRubro(event.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-700 outline-none"
+            >
               <option>Cafetería</option>
               <option>Gastronomía general</option>
               <option>Comercio minorista</option>
             </select>
           </div>
 
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-600 mb-4">
-              Consultaste por <strong className="text-slate-800">Cafetería</strong> en <strong className="text-slate-800">{direccionBusqueda || "Calle Corrientes 2500"}</strong>.<br/>
+              Consultaste por <strong className="text-slate-800">{rubro}</strong> en <strong className="text-slate-800">{direccion}</strong>.<br/>
               ¿Qué más te gustaría saber?
             </p>
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Preguntar..." 
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg py-2.5 pl-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button className="absolute right-2 top-2 bg-blue-600 text-white p-1.5 rounded-md text-xs">
-                ⬆
-              </button>
-            </div>
+            <AsistenteSGI
+              key={`${rubro}:${direccion}`}
+              rubro={rubro}
+              direccion={direccion}
+              totalPasos={5}
+            />
           </div>
 
         </div>
 
-        {/* COLUMNA DERECHA: Los 4 pasos */}
+        {/* COLUMNA DERECHA: Los 5 pasos */}
         <div className="lg:col-span-7 bg-white rounded-xl p-8 shadow-sm border border-slate-200">
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Tu camino para abrir el local</h2>
           <p className="text-sm text-slate-500 mb-6">¡Vamos a poner tu proyecto en marcha!</p>
 
           <p className="text-sm text-slate-600 mb-6">
-            Ya tenés el mapa del camino. Te esperan 4 pasos para organizar las gestiones necesarias para abrir tu local. Avanzá a tu ritmo: acá vas a encontrar qué hacer en cada etapa.
+            Ya tenés el mapa del camino. Te esperan 5 pasos para organizar las gestiones necesarias para abrir tu local. Avanzá a tu ritmo: acá vas a encontrar qué hacer en cada etapa.
           </p>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8">
             <div className="flex justify-between text-xs font-bold text-slate-600 mb-2">
               <span>Tu avance</span>
-              <span>0 de 4 trámites completados</span>
+              <span>0 de 5 trámites completados</span>
             </div>
             <div className="w-full bg-slate-200 h-2 rounded-full mb-4 overflow-hidden">
               <div className="bg-blue-600 h-full w-0"></div>
@@ -151,6 +156,24 @@ export default function TramitesView({
               <div className="flex items-center gap-3 mb-2">
                 <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">4</span>
                 <h3 className="font-bold text-slate-800 text-base">Validar datos</h3>
+              </div>
+              <p className="text-sm text-slate-600 pl-10 mb-4">
+                En esta descripción del paso se muestran los detalles principales de las acciones que deberá realizar la persona usuaria posteriormente.
+              </p>
+              <div className="pl-10 flex gap-2">
+                <button className="border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                  Marcar como hecho
+                </button>
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                  Iniciar gestión
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">5</span>
+                <h3 className="font-bold text-slate-800 text-base">Finalizar trámite</h3>
               </div>
               <p className="text-sm text-slate-600 pl-10 mb-4">
                 En esta descripción del paso se muestran los detalles principales de las acciones que deberá realizar la persona usuaria posteriormente.
