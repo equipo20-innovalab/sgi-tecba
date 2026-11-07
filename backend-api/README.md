@@ -24,12 +24,15 @@ API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECB
 
 | Componente | Versión | Uso |
 |-----------|---------|-----|
-| Python | 3.12+ | Lenguaje |
+| Python | 3.11+ (validado con 3.11.1) | Lenguaje |
 | FastAPI | 0.143+ | Framework web |
 | SQLAlchemy | 2.1+ | ORM |
 | psycopg[binary] | 3.3.6 | Driver PostgreSQL con binarios incluidos |
 | Pydantic | 2.14+ | Validación de schemas |
 | Uvicorn | 0.54+ | Servidor ASGI |
+| LangChain | 1.4.7 | Orquestación del agente y herramientas |
+| langchain-groq | 1.1.3 | Integración con Groq |
+| Groq | Configurable con `GROQ_MODEL` | Proveedor del modelo conversacional |
 | PostgreSQL | 15 + PostGIS 3.3 | Base de datos (Docker) |
 
 ---
@@ -44,13 +47,22 @@ backend-api/
 │   │   ├── health.py              # GET /health
 │   │   ├── rubros.py              # GET /rubros, /rubros/{rubro}/requisitos
 │   │   ├── habilitaciones.py      # GET /habilitaciones/*
-│   │   └── catastro.py            # GET /catastro/{smp}
+│   │   ├── catastro.py            # GET /catastro/{smp}
+│   │   ├── consulta.py            # POST /consulta
+│   │   ├── mapa.py                # GET /mapa/*
+│   │   └── chat.py                # POST /chat: endpoint conversacional
 │   ├── core/
 │   │   ├── config.py              # Settings (lee .env)
-│   │   └── database.py            # Engine + Session
+│   │   ├── database.py            # Engine + Session
+│   │   └── data_paths.py          # Ubicación de datos geográficos locales
 │   ├── models/                    # SQLAlchemy models
 │   ├── schemas/                   # Pydantic schemas
 │   └── services/                  # Lógica de negocio
+│       ├── chat_agent.py          # Agente LangChain/Groq y tools del chatbot
+│       ├── consulta_service.py    # Lógica de consulta integrada
+│       ├── extraccion_service.py  # Extracción de datos de consultas
+│       ├── fuentes_service.py     # Fuentes de información
+│       └── geocoding_service.py   # Geocodificación
 ├── run.sh                         # Inicio rápido para Git Bash en Windows
 ├── db/
 │   ├── schema.sql                 # DDL (CREATE TABLE, índices, extensiones)
@@ -69,7 +81,7 @@ backend-api/
 ## ✅ Requisitos previos
 
 - **Docker Desktop** (con WSL2 backend en Windows)
-- **Python 3.12 o 3.13**
+- **Python 3.11 o superior** (el entorno documentado se validó con Python 3.11.1)
 - **Git Bash** (Windows) o **WSL/Ubuntu** (recomendado para comandos de Docker)
 - **Puertos libres:** `8000` (API), `5433` (PostgreSQL)
 
@@ -77,7 +89,7 @@ Verificá:
 
 ```bash
 docker --version          # >= 24.0
-python --version          # 3.12.x o 3.13.x
+python --version          # 3.11.x o superior
 ```
 
 ---
@@ -117,7 +129,7 @@ which python           # Debe apuntar a .venv-py311/Scripts/python (o .venv-py31
 pip install -r requirements.txt
 ```
 
-El archivo de dependencias fija `psycopg[binary]==3.3.6`. Para este entorno usa Python 3.11.1 (`py -3.11` en Windows) e instala siempre desde `requirements.txt`. Evita Python 3.15.0rc1: algunas dependencias todavía no ofrecen wheels para esa versión preliminar.
+El archivo de dependencias fija `psycopg[binary]==3.3.6` y las versiones de LangChain usadas por el chatbot. Para el entorno validado usa Python 3.11.1 (`py -3.11` en Windows) e instala siempre desde `requirements.txt`. Evita versiones preliminares, como Python 3.15.0rc1, porque algunas dependencias pueden no ofrecer wheels para ellas.
 
 ### 4. Configurar variables de entorno
 
@@ -131,9 +143,28 @@ Editá `.env`:
 DATABASE_URL=postgresql+psycopg://tecba_user:tecba_password@localhost:5433/innovalab
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173
-# Raíz de data (debe contener geo/comunas.geojson).
+# Chat conversacional (obtené la clave desde Groq; es secreta).
+GROQ_API_KEY=tu_api_key_de_groq
+GROQ_MODEL=llama-3.3-70b-versatile
+# Opcional: raíz de data que contiene geo/comunas.geojson.
 INNOVALAB_DATA_DIR=/c/ruta/a/sgi-tecba/data_analytics/innovalab/data
 ```
+
+Variables de entorno:
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `DATABASE_URL` | Sí | Conexión a PostgreSQL. Usá el driver `postgresql+psycopg` (psycopg v3). |
+| `ENVIRONMENT` | No | Entorno de ejecución; por defecto `development`. |
+| `CORS_ORIGINS` | No | Orígenes frontend permitidos, separados por coma. Por defecto `http://localhost:5173`. |
+| `GROQ_API_KEY` | Para usar el chatbot | Clave privada de Groq. Sin ella, la API puede iniciar, pero `POST /api/v1/chat` responde `503`. |
+| `GROQ_MODEL` | No | Modelo de Groq; por defecto `llama-3.3-70b-versatile`. |
+| `INNOVALAB_DATA_DIR` | No | Ruta a la carpeta `data` que contiene `geo/comunas.geojson`; si se omite, se usa la ubicación predeterminada del proyecto. |
+
+`GROQ_API_KEY` debe configurarse únicamente en `backend-api/.env` o como secreto
+del entorno de despliegue. No la pongas en el frontend ni la subas al repositorio.
+El frontend envía los mensajes a `POST /api/v1/chat`; FastAPI usa LangChain y Groq
+en el servidor para generar respuestas y, cuando corresponde, consultar las tools.
 
 > ⚠️ **Ojo con el driver `+psycopg`** (psycopg v3). Si ponés `+psycopg2` va a fallar.
 > ⚠️ **Ojo con el puerto `5433`** (no `5432`). Usamos 5433 para no chocar con un Postgres nativo.
@@ -344,6 +375,46 @@ curl -X POST "http://localhost:8000/api/v1/consulta" \
   -H "Content-Type: application/json" \
   -d '{"texto":"Quiero abrir una cafetería en Av. Corrientes 2500"}'
 ```
+
+### `chat` — Asistente conversacional
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/chat` | Responde consultas en lenguaje natural; el agente usa Groq y las herramientas de datos disponibles cuando corresponde |
+
+El cuerpo requiere `messages` (historial ordenado de mensajes con `role` igual a
+`user` o `assistant` y `content` de 1 a 4000 caracteres). El último mensaje debe
+ser del usuario. `context` es un objeto opcional con datos del trámite activo,
+por ejemplo `rubro`, `direccion` y `ciudad`. La respuesta contiene `reply` con
+el texto redactado para mostrar en el chat.
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "¿Qué documentación necesito?"}
+    ],
+    "context": {
+      "rubro": "Cafetería",
+      "direccion": "Av. Corrientes 2500",
+      "ciudad": "CABA"
+    }
+  }'
+```
+
+La respuesta tiene esta forma:
+
+```json
+{
+  "reply": "Para una cafetería, estos son los requisitos disponibles..."
+}
+```
+
+El endpoint responde `422` si el cuerpo no cumple el schema, `400` si la lista
+está vacía o el último mensaje no es del usuario, `503` si falta configurar
+`GROQ_API_KEY` o el proveedor no está disponible, y `500` ante un error interno.
+La clave de Groq se configura solo en el backend; no la incluyas en el frontend.
 
 ---
 
