@@ -1,6 +1,7 @@
 # Entorno
 .env
 .venv/
+.venv-py311/
 venv/
 ENV/
 

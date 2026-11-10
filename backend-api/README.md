@@ -24,12 +24,15 @@ API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECB
 
 | Componente | Versión | Uso |
 |-----------|---------|-----|
-| Python | 3.12+ | Lenguaje |
+| Python | 3.11+ (validado con 3.11.1) | Lenguaje |
 | FastAPI | 0.143+ | Framework web |
 | SQLAlchemy | 2.1+ | ORM |
 | psycopg[binary] | 3.3.6 | Driver PostgreSQL con binarios incluidos |
 | Pydantic | 2.14+ | Validación de schemas |
 | Uvicorn | 0.54+ | Servidor ASGI |
+| LangChain | 1.4.7 | Orquestación del agente y herramientas |
+| langchain-groq | 1.1.3 | Integración con Groq |
+| Groq | Configurable con `GROQ_MODEL` | Proveedor del modelo conversacional |
 | PostgreSQL | 15 + PostGIS 3.3 | Base de datos (Docker) |
 
 ---
@@ -44,13 +47,23 @@ backend-api/
 │   │   ├── health.py              # GET /health
 │   │   ├── rubros.py              # GET /rubros, /rubros/{rubro}/requisitos
 │   │   ├── habilitaciones.py      # GET /habilitaciones/*
-│   │   └── catastro.py            # GET /catastro/{smp}
+│   │   ├── catastro.py            # GET /catastro/{smp}
+│   │   ├── consulta.py            # POST /consulta
+│   │   ├── mapa.py                # GET /mapa/*
+│   │   └── chat.py                # POST /chat: endpoint conversacional
 │   ├── core/
 │   │   ├── config.py              # Settings (lee .env)
-│   │   └── database.py            # Engine + Session
+│   │   ├── database.py            # Engine + Session
+│   │   └── data_paths.py          # Ubicación de datos geográficos locales
 │   ├── models/                    # SQLAlchemy models
 │   ├── schemas/                   # Pydantic schemas
 │   └── services/                  # Lógica de negocio
+│       ├── chat_agent.py          # Agente LangChain/Groq y tools del chatbot
+│       ├── consulta_service.py    # Lógica de consulta integrada
+│       ├── extraccion_service.py  # Extracción de datos de consultas
+│       ├── fuentes_service.py     # Fuentes de información
+│       └── geocoding_service.py   # Geocodificación
+├── run.sh                         # Inicio rápido para Git Bash en Windows
 ├── db/
 │   ├── schema.sql                 # DDL (CREATE TABLE, índices, extensiones)
 │   └── seed/
@@ -68,7 +81,7 @@ backend-api/
 ## ✅ Requisitos previos
 
 - **Docker Desktop** (con WSL2 backend en Windows)
-- **Python 3.12 o 3.13**
+- **Python 3.11 o superior** (el entorno documentado se validó con Python 3.11.1)
 - **Git Bash** (Windows) o **WSL/Ubuntu** (recomendado para comandos de Docker)
 - **Puertos libres:** `8000` (API), `5433` (PostgreSQL)
 
@@ -76,7 +89,7 @@ Verificá:
 
 ```bash
 docker --version          # >= 24.0
-python --version          # 3.12.x o 3.13.x
+python --version          # 3.11.x o superior
 ```
 
 ---
@@ -93,22 +106,22 @@ cd "/ruta/a/backend-api"
 
 **En Git Bash (Windows):**
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate
+py -3.11 -m venv .venv-py311
+source .venv-py311/Scripts/activate
 ```
 
 **En WSL/Ubuntu:**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv-py311
+source .venv-py311/bin/activate
 ```
 
 **Verificar que se activó:**
 ```bash
-which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python)
+which python           # Debe apuntar a .venv-py311/Scripts/python (o .venv-py311/bin/python)
 ```
 
-> 💡 **Tip:** si abrís una terminal nueva, **el venv NO está activado**. Volvé a correr `source .venv/Scripts/activate` (o `.venv/bin/activate`).
+> 💡 **Tip:** si abrís una terminal nueva, **el venv NO está activado**. Volvé a correr `source .venv-py311/Scripts/activate` (o `.venv-py311/bin/activate`).
 
 ### 3. Instalar dependencias
 
@@ -116,7 +129,7 @@ which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python
 pip install -r requirements.txt
 ```
 
-El archivo de dependencias fija `psycopg[binary]==3.3.6`. Usa Python 3.12 o 3.13 e instala siempre desde `requirements.txt` para mantener esa versión.
+El archivo de dependencias fija `psycopg[binary]==3.3.6` y las versiones de LangChain usadas por el chatbot. Para el entorno validado usa Python 3.11.1 (`py -3.11` en Windows) e instala siempre desde `requirements.txt`. Evita versiones preliminares, como Python 3.15.0rc1, porque algunas dependencias pueden no ofrecer wheels para ellas.
 
 ### 4. Configurar variables de entorno
 
@@ -130,7 +143,28 @@ Editá `.env`:
 DATABASE_URL=postgresql+psycopg://tecba_user:tecba_password@localhost:5433/innovalab
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173
+# Chat conversacional (obtené la clave desde Groq; es secreta).
+GROQ_API_KEY=tu_api_key_de_groq
+GROQ_MODEL=llama-3.3-70b-versatile
+# Opcional: raíz de data que contiene geo/comunas.geojson.
+INNOVALAB_DATA_DIR=/c/ruta/a/sgi-tecba/data_analytics/innovalab/data
 ```
+
+Variables de entorno:
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `DATABASE_URL` | Sí | Conexión a PostgreSQL. Usá el driver `postgresql+psycopg` (psycopg v3). |
+| `ENVIRONMENT` | No | Entorno de ejecución; por defecto `development`. |
+| `CORS_ORIGINS` | No | Orígenes frontend permitidos, separados por coma. Por defecto `http://localhost:5173`. |
+| `GROQ_API_KEY` | Para usar el chatbot | Clave privada de Groq. Sin ella, la API puede iniciar, pero `POST /api/v1/chat` responde `503`. |
+| `GROQ_MODEL` | No | Modelo de Groq; por defecto `llama-3.3-70b-versatile`. |
+| `INNOVALAB_DATA_DIR` | No | Ruta a la carpeta `data` que contiene `geo/comunas.geojson`; si se omite, se usa la ubicación predeterminada del proyecto. |
+
+`GROQ_API_KEY` debe configurarse únicamente en `backend-api/.env` o como secreto
+del entorno de despliegue. No la pongas en el frontend ni la subas al repositorio.
+El frontend envía los mensajes a `POST /api/v1/chat`; FastAPI usa LangChain y Groq
+en el servidor para generar respuestas y, cuando corresponde, consultar las tools.
 
 > ⚠️ **Ojo con el driver `+psycopg`** (psycopg v3). Si ponés `+psycopg2` va a fallar.
 > ⚠️ **Ojo con el puerto `5433`** (no `5432`). Usamos 5433 para no chocar con un Postgres nativo.
@@ -199,9 +233,15 @@ Esperado:
 
 ### 8. Levantar el backend
 
+Desde `backend-api`, en **Git Bash para Windows**:
+
 ```bash
-uvicorn app.main:app --reload --port 8000
+bash run.sh
 ```
+
+El script usa `.venv-py311/Scripts/python.exe`, carga la configuración de `.env` y
+arranca Uvicorn con recarga automática en el puerto `8000`. Dejá esta terminal
+abierta mientras usás la API.
 
 **Salida esperada:**
 ```
@@ -289,10 +329,11 @@ curl "http://localhost:8000/api/v1/catastro/001-001-008A"
 | GET | `/api/v1/mapa/comunas` | Límites GeoJSON de las comunas |
 | GET | `/api/v1/mapa/parcelas` | Parcelas EPOK georreferenciadas con conteo e historial de rubros |
 
-El mapa actualiza las parcelas según el área visible. El backend también necesita
-acceso a `data/geo/comunas.geojson`; por defecto busca la carpeta `data` hermana
-del clon `sgi-tecba`. Si está en otra ubicación, configúrala con
-`INNOVALAB_DATA_DIR` en `backend-api/.env`.
+El mapa actualiza las parcelas según el área visible. El backend necesita acceso
+a `geo/comunas.geojson`. `INNOVALAB_DATA_DIR` debe indicar la carpeta raíz `data`
+que contiene `geo/`. Si no se configura, por defecto busca la carpeta `data`
+hermana del clon `sgi-tecba`. El backend carga esta variable desde
+`backend-api/.env`, junto con `DATABASE_URL`.
 
 ### Código Urbanístico completo por SMP
 
@@ -335,18 +376,68 @@ curl -X POST "http://localhost:8000/api/v1/consulta" \
   -d '{"texto":"Quiero abrir una cafetería en Av. Corrientes 2500"}'
 ```
 
+### `chat` — Asistente conversacional
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/chat` | Responde consultas en lenguaje natural; el agente usa Groq y las herramientas de datos disponibles cuando corresponde |
+
+El cuerpo requiere `messages` (historial ordenado de mensajes con `role` igual a
+`user` o `assistant` y `content` de 1 a 4000 caracteres). El último mensaje debe
+ser del usuario. `context` es un objeto opcional con datos del trámite activo,
+por ejemplo `rubro`, `direccion` y `ciudad`. La respuesta contiene `reply` con
+el texto redactado para mostrar en el chat.
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "¿Qué documentación necesito?"}
+    ],
+    "context": {
+      "rubro": "Cafetería",
+      "direccion": "Av. Corrientes 2500",
+      "ciudad": "CABA"
+    }
+  }'
+```
+
+La respuesta tiene esta forma:
+
+```json
+{
+  "reply": "Para una cafetería, estos son los requisitos disponibles..."
+}
+```
+
+El endpoint responde `422` si el cuerpo no cumple el schema, `400` si la lista
+está vacía o el último mensaje no es del usuario, `503` si falta configurar
+`GROQ_API_KEY` o el proveedor no está disponible, y `500` ante un error interno.
+La clave de Groq se configura solo en el backend; no la incluyas en el frontend.
+
 ---
 
 ## 🎬 Cómo correr el proyecto
 
 ### Desarrollo (con hot reload)
 
-```bash
-source .venv/Scripts/activate      # Windows
-# o
-source .venv/bin/activate           # Linux/WSL
+**En Git Bash (Windows), desde la raíz del repositorio:**
 
-uvicorn app.main:app --reload --port 8000
+```bash
+cd backend-api
+bash run.sh
+```
+
+El script usa el entorno virtual `.venv-py311`, lee la configuración de `.env` y
+arranca el servidor en `http://127.0.0.1:8000`. No hace falta activar el entorno
+virtual manualmente.
+
+**En Linux/WSL:**
+
+```bash
+cd backend-api
+.venv-py311/bin/python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Producción (sin reload)
@@ -437,16 +528,25 @@ docker start tecba-postgres
 docker port tecba-postgres
 ```
 
+### `No se encontró la capa GeoJSON de comunas`
+
+**Causa:** `INNOVALAB_DATA_DIR` no apunta a la carpeta `data` que contiene
+`geo/comunas.geojson`, o el archivo no está presente.
+
+**Solución:** corregir `INNOVALAB_DATA_DIR` en `backend-api/.env` y reiniciar
+Uvicorn. En Git Bash sobre Windows, una ruta tiene esta forma:
+`/c/ruta/a/sgi-tecba/data_analytics/innovalab/data`.
+
 ### `ModuleNotFoundError: No module named 'sqlalchemy'`
 
 **Causa:** el venv no está activado.
 
 **Solución:**
 ```bash
-source .venv/Scripts/activate    # Windows
+source .venv-py311/Scripts/activate    # Windows
 # o
-source .venv/bin/activate         # Linux/WSL
-which python                      # debe apuntar a .venv
+source .venv-py311/bin/activate         # Linux/WSL
+which python                      # debe apuntar a .venv-py311
 ```
 
 ### `psycopg.OperationalError: password authentication failed`
@@ -479,8 +579,8 @@ which python                      # debe apuntar a .venv
 
 **Solución:**
 1. `Ctrl + Shift + P` → **`Python: Select Interpreter`**
-2. Elegir `./.venv/Scripts/python.exe`
-3. Verificar en la barra inferior: `Python 3.14.x ('.venv': venv)`
+2. Elegir `./.venv-py311/Scripts/python.exe`
+3. Verificar en la barra inferior: `Python 3.11.x ('.venv-py311': venv)`
 
 ### `port is already allocated` al levantar el contenedor
 
