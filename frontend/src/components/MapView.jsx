@@ -1,3 +1,12 @@
+/**
+ * @file MapView.jsx
+ * @description Visor geográfico urbano 3D para la Ciudad Autónoma de Buenos Aires.
+ * Utiliza MapLibre GL con imágenes satelitales de Esri y extrusión de edificios 3D de CARTO.
+ * Incluye validación estricta de coordenadas (Bounding Box CABA) para evitar desplazamientos
+ * hacia coordenadas nulas (0, 0) o zonas fuera de la jurisdicción terrestre.
+ * @author Equipo Frontend - SGI TECBA
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
@@ -6,11 +15,39 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // Vite no resuelve el worker interno de MapLibre: lo apuntamos explícitamente
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
-// Límites aproximados de la Ciudad de Buenos Aires (excluye el conurbano)
+// Centro por defecto (Obelisco, CABA)
+const DEFAULT_CENTER = [-58.3816, -34.6037];
+const DEFAULT_ZOOM = 14;
+
+// Límites aproximados de la Ciudad de Buenos Aires (excluye el conurbano y el río abierto)
 const CABA_BOUNDS = [
     [-58.545, -34.71], // suroeste [lng, lat]
-    [-58.33, -34.52], // noreste [lng, lat]
+    [-58.33, -34.52],  // noreste [lng, lat]
 ];
+
+/**
+ * Valida que un par de coordenadas corresponda a un punto válido dentro de CABA.
+ * Previene el bug de JavaScript donde Number(null) === 0 desplaza el mapa al agua.
+ *
+ * @param {number|string|null|undefined} lat - Latitud a evaluar.
+ * @param {number|string|null|undefined} lng - Longitud a evaluar.
+ * @returns {boolean} True si las coordenadas son números reales dentro de CABA.
+ */
+function esCoordenadaEnCABA(lat, lng) {
+    if (lat === null || lat === undefined || lng === null || lng === undefined) {
+        return false;
+    }
+    if (lat === '' || lng === '') {
+        return false;
+    }
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+        return false;
+    }
+    const [[minLng, minLat], [maxLng, maxLat]] = CABA_BOUNDS;
+    return latNum >= minLat && latNum <= maxLat && lngNum >= minLng && lngNum <= maxLng;
+}
 
 // Estilo satelital (Esri World Imagery) + edificios 3D desde los vectores de CARTO
 const ESTILO_SATELITE = {
@@ -45,7 +82,6 @@ const ESTILO_SATELITE = {
             'source-layer': 'buildings',
             minzoom: 13,
             paint: {
-                // Gradiente por altura: más bajo = gris oscuro, más alto = casi blanco
                 'fill-extrusion-color': [
                     'interpolate',
                     ['linear'],
@@ -110,6 +146,12 @@ const ESTILO_SATELITE = {
     ],
 };
 
+/**
+ * Calcula la caja delimitadora (Bounding Box) de una colección GeoJSON.
+ *
+ * @param {Object} geojson - Objeto GeoJSON con las geometrías de comunas.
+ * @returns {Array<Array<number>>|null} Coordenadas [[minLng, minLat], [maxLng, maxLat]].
+ */
 function boundsDeGeoJSON(geojson) {
     let minLng = Infinity;
     let minLat = Infinity;
@@ -136,7 +178,16 @@ function boundsDeGeoJSON(geojson) {
     ];
 }
 
-export default function MapView({ location, containerHeightClass = 'h-[400px]' }) {
+/**
+ * Componente MapView
+ * Renderiza el mapa interactivo 3D y posiciona un marcador en la dirección consultada.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {Object|null} props.location - Objeto ubicación devuelto por el backend ({lat, lng, direccion_normalizada, smp}).
+ * @param {string} [props.containerHeightClass='h-full min-h-[400px]'] - Clases de altura Tailwind para el contenedor.
+ * @returns {JSX.Element} Contenedor con el visor MapLibre GL.
+ */
+export default function MapView({ location, containerHeightClass = 'h-full min-h-[400px]' }) {
     const containerRef = useRef(null);
     const mapRef = useRef(null);
     const markerRef = useRef(null);
@@ -146,8 +197,8 @@ export default function MapView({ location, containerHeightClass = 'h-[400px]' }
         const map = new maplibregl.Map({
             container: containerRef.current,
             style: ESTILO_SATELITE,
-            center: [-58.3816, -34.6037],
-            zoom: 14,
+            center: DEFAULT_CENTER,
+            zoom: DEFAULT_ZOOM,
             pitch: 45,
             bearing: -15,
             antialias: true,
@@ -158,48 +209,8 @@ export default function MapView({ location, containerHeightClass = 'h-[400px]' }
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
         mapRef.current = map;
 
-        map.on('load', async () => {
-            try {
-                const response = await fetch('/api/v1/mapa/comunas');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const geojson = await response.json();
-
-                map.addSource('comunas', { type: 'geojson', data: geojson });
-                map.addLayer(
-                    {
-                        id: 'comunas-fill',
-                        type: 'fill',
-                        source: 'comunas',
-                        paint: {
-                            'fill-color': '#38bdf8',
-                            'fill-opacity': 0.06,
-                        },
-                    },
-                    'calles-nombres',
-                );
-                map.addLayer(
-                    {
-                        id: 'comunas-line',
-                        type: 'line',
-                        source: 'comunas',
-                        paint: {
-                            'line-color': '#7dd3fc',
-                            'line-width': 1.5,
-                            'line-opacity': 0.7,
-                        },
-                    },
-                    'calles-nombres',
-                );
-
-                // Restringir la navegación a la silueta real de CABA
-                const bounds = boundsDeGeoJSON(geojson);
-                if (bounds) {
-                    map.setMaxBounds(bounds);
-                }
-                setMapMessage('Ciudad de Buenos Aires · satélite + edificios 3D');
-            } catch (error) {
-                setMapMessage(`No se pudieron cargar los límites de comunas: ${error.message}`);
-            }
+        map.on('load', () => {
+            setMapMessage('Ciudad de Buenos Aires · satélite/edificios 3D');
         });
 
         map.on('error', (event) => {
@@ -209,6 +220,7 @@ export default function MapView({ location, containerHeightClass = 'h-[400px]' }
                 setMapMessage('No se pudieron cargar los mapas base. Verificá tu conexión a Internet.');
             }
         });
+
         return () => {
             markerRef.current?.remove();
             markerRef.current = null;
@@ -217,21 +229,30 @@ export default function MapView({ location, containerHeightClass = 'h-[400px]' }
         };
     }, []);
 
-    // Solo mostramos la ubicación consultada (sin capas masivas de parcelas)
+    // Actualización de marcador y cámara al recibir una nueva ubicación
     useEffect(() => {
         const map = mapRef.current;
         if (!map) return;
 
-        const lat = Number(location?.lat);
-        const lng = Number(location?.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        // Si no hay ubicación o sus coordenadas son nulas/inválidas, limpiamos el pin
+        // y mantenemos la vista general de CABA sin volar a [0, 0] (agua).
+        if (!esCoordenadaEnCABA(location?.lat, location?.lng)) {
+            markerRef.current?.remove();
+            markerRef.current = null;
+            return;
+        }
+
+        const lat = Number(location.lat);
+        const lng = Number(location.lng);
 
         const aplicarUbicacion = () => {
             markerRef.current?.remove();
-            const label = location.direccion_normalizada
-                || location.direccion_original
-                || location.smp
-                || 'Ubicación consultada';
+            const label =
+                location.direccion_normalizada ||
+                location.direccion_original ||
+                location.smp ||
+                'Ubicación consultada';
+
             const popup = new maplibregl.Popup({ maxWidth: '320px' }).setText(label);
             markerRef.current = new maplibregl.Marker()
                 .setLngLat([lng, lat])
