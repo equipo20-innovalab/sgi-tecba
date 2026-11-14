@@ -1,10 +1,127 @@
 /**
  * @file ResultPanel.jsx
  * @description Panel de visualización de resultados y viabilidad urbana para la consulta del usuario.
+ * Integra los datos territoriales y catastrales en vivo de la API pública USIG (datos_utiles):
+ * Comuna, Barrio, Sección, Manzana, Parcela y Clave SMP.
  * @author Equipo Frontend - SGI TECBA
  */
 
+import { useEffect, useState } from 'react';
+
+/**
+ * Mapea el identificador técnico de una fuente de datos a una etiqueta legible.
+ *
+ * @param {string} fuente - Identificador interno de la fuente.
+ * @returns {string} Nombre descriptivo de la fuente.
+ */
+const etiquetaFuente = (fuente) => ({
+    archivo: 'Fuente original',
+    catastro: 'Catastro',
+    callejero: 'Callejero oficial',
+    callejero_fuzzy: 'Callejero aproximado',
+    seccion_manzana_parcela: 'Sección, manzana y parcela',
+    sin_dato: 'Fuente sin dato',
+}[fuente] || 'Origen no informado');
+
+/**
+ * Formatea un valor arbitrario para su visualización segura en la interfaz.
+ *
+ * @param {*} value - Valor a formatear.
+ * @returns {string} Cadena de texto formateada o indicador de dato no disponible.
+ */
+const formatValue = (value) => {
+    if (value == null || value === '') return 'Dato no disponible';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+};
+
+/**
+ * Extrae el nombre de la calle y la altura numérica a partir de una dirección normalizada de USIG.
+ * Ejemplo: "CORRIENTES AV. 2500, CABA" -> { calle: "CORRIENTES AV.", altura: 2500 }
+ *
+ * @param {string} direccion - Dirección a analizar.
+ * @returns {{calle: string, altura: number}|null} Objeto con calle y altura, o null.
+ */
+function extraerCalleYAltura(direccion) {
+    if (!direccion) return null;
+    const sinCaba = direccion.replace(/,?\s*(CABA|CAPITAL FEDERAL).*$/i, '').trim();
+    const match = sinCaba.match(/^(.+?)\s+(\d+)\s*$/);
+    if (!match) return null;
+    return {
+        calle: match[1].trim(),
+        altura: parseInt(match[2], 10),
+    };
+}
+
+/**
+ * Componente ResultPanel
+ * Renderiza el resumen territorial enriquecido con USIG (datos_utiles), los datos catastrales
+ * de Sección-Manzana-Parcela, los requisitos del trámite y las fuentes oficiales.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {Object|null} props.data - Respuesta estructurada del endpoint /api/v1/consulta.
+ * @returns {JSX.Element} Panel de resultados de la consulta.
+ */
 export const ResultPanel = ({ data }) => {
+    const [datosUtiles, setDatosUtiles] = useState(null);
+
+    const ubicacion = data?.ubicacion || {};
+    const address =
+        ubicacion.direccion_normalizada ||
+        ubicacion.direccion_original ||
+        'Dirección no identificada';
+
+    // Consulta en vivo a la API pública USIG (datos_utiles) para obtener Barrio, Sección, Manzana y Parcela
+    useEffect(() => {
+        let cancelado = false;
+        const parsed = extraerCalleYAltura(
+            ubicacion.direccion_normalizada || ubicacion.direccion_original
+        );
+
+        if (!parsed) {
+            setDatosUtiles(null);
+            return undefined;
+        }
+
+        const consultarUsig = async () => {
+            // Si la altura termina en 00 (esquina exacta), probamos también +2 para obtener la parcela frentista
+            const alturas =
+                parsed.altura % 100 === 0
+                    ? [parsed.altura, parsed.altura + 2, parsed.altura + 4]
+                    : [parsed.altura];
+
+            let mejorDato = null;
+            for (const alt of alturas) {
+                try {
+                    const url = `https://ws.usig.buenosaires.gob.ar/datos_utiles/?calle=${encodeURIComponent(
+                        parsed.calle
+                    )}&altura=${alt}`;
+                    const resp = await fetch(url);
+                    if (!resp.ok) continue;
+                    const json = await resp.json();
+                    if (json && (json.comuna || json.barrio)) {
+                        if (!mejorDato) mejorDato = json;
+                        if (json.seccion && json.manzana && json.parcela) {
+                            mejorDato = json;
+                            break;
+                        }
+                    }
+                } catch {
+                    // Continuar con el siguiente intento si falla la red
+                }
+            }
+
+            if (!cancelado) {
+                setDatosUtiles(mejorDato);
+            }
+        };
+
+        consultarUsig();
+        return () => {
+            cancelado = true;
+        };
+    }, [ubicacion.direccion_normalizada, ubicacion.direccion_original]);
+
     if (!data) {
         return (
             <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-6">
@@ -16,32 +133,39 @@ export const ResultPanel = ({ data }) => {
         );
     }
 
-    const ubicacion = data.ubicacion || {};
     const ficha = data.ficha_catastral;
     const parcela = data.habilitaciones_parcela?.[0];
     const contexto = data.contexto_territorial;
-    const cobertura = data.cobertura_datos;
-    const address = ubicacion.direccion_normalizada
-        || ubicacion.direccion_original
-        || 'Dirección no identificada';
+
+    // Desglose de Sección, Manzana y Parcela desde datos_utiles, ficha local o SMP
+    const smpBase = ficha?.smp || parcela?.smp || ubicacion.smp;
+    const partesSmp = smpBase ? smpBase.split('-') : [];
+
+    const seccion =
+        datosUtiles?.seccion ||
+        parcela?.seccion ||
+        partesSmp[0] ||
+        null;
+    const manzana =
+        datosUtiles?.manzana ||
+        parcela?.manzana ||
+        partesSmp[1] ||
+        null;
+    const parcelaNum =
+        datosUtiles?.parcela ||
+        parcela?.parcela ||
+        partesSmp[2] ||
+        null;
+
+    const smpCalculado =
+        smpBase ||
+        (seccion && manzana && parcelaNum
+            ? `${String(seccion).padStart(3, '0')}-${String(manzana).padStart(3, '0')}-${String(parcelaNum).padStart(3, '0')}`
+            : null);
+
+    const barrio = datosUtiles?.barrio || null;
     const area = ficha?.superficie_total ?? ficha?.superficie_cubierta;
-    const formatValue = (value) => {
-        if (value == null || value === '') return 'Dato no disponible';
-        if (typeof value === 'object') return JSON.stringify(value);
-        return String(value);
-    };
-    const porcentajeCobertura = (campo) => {
-        const valor = cobertura?.campos?.[campo]?.cobertura;
-        return typeof valor === 'number' ? `${(valor * 100).toFixed(1)}%` : 'No disponible';
-    };
-    const etiquetaFuente = (fuente) => ({
-        archivo: 'Fuente original',
-        catastro: 'Catastro',
-        callejero: 'Callejero oficial',
-        callejero_fuzzy: 'Callejero aproximado',
-        seccion_manzana_parcela: 'Sección, manzana y parcela',
-        sin_dato: 'Fuente sin dato',
-    }[fuente] || 'Origen no informado');
+
     const confianzaComuna = {
         archivo: 'Alta',
         catastro: 'Alta',
@@ -51,6 +175,7 @@ export const ResultPanel = ({ data }) => {
 
     return (
         <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-6">
+            {/* Encabezado de la dirección consultada */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 mb-4 gap-2">
                 <div>
                     <span className="text-xs font-semibold uppercase tracking-wider text-gcba-secondary">
@@ -63,70 +188,55 @@ export const ResultPanel = ({ data }) => {
                 </span>
             </div>
 
-            {cobertura && (
-                <section className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4" aria-label="Cobertura del padrón">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <h4 className="text-sm font-bold text-amber-950">Cobertura del padrón</h4>
-                        <span className="text-xs text-amber-900">
-                            {cobertura.total_registros.toLocaleString('es-AR')} registros
-                        </span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {[
-                            ['Comuna', 'comuna'],
-                            ['Clave SMP', 'smp'],
-                            ['Fecha de habilitación', 'fecha_habilitacion'],
-                        ].map(([label, campo]) => {
-                            const metrica = cobertura.campos?.[campo];
-                            const cumple = metrica?.cumple_expectativa;
-                            return (
-                                <div key={campo} className="rounded-md border border-amber-200 bg-white p-3">
-                                    <p className="text-xs font-medium text-slate-600">{label}</p>
-                                    <p className="mt-1 text-lg font-bold text-slate-900">
-                                        {porcentajeCobertura(campo)}
-                                    </p>
-                                    {metrica?.expectativa_minima != null && (
-                                        <p className={`mt-1 text-xs ${cumple ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                            {cumple ? 'Cumple' : 'Debajo'} de la expectativa de{' '}
-                                            {(metrica.expectativa_minima * 100).toFixed(0)}%
-                                        </p>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <p className="mt-3 text-xs text-amber-950">
-                        La cobertura es parcial. Los niveles de confianza son indicativos según la fuente, no probabilidades.
-                    </p>
-                </section>
-            )}
-
+            {/* Tarjetas de indicadores territoriales y catastrales (USIG Datos Útiles) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {/* Tarjeta 1: Comuna y Barrio */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                    <p className="text-xs text-slate-500 font-medium">Comuna</p>
+                    <p className="text-xs text-slate-500 font-medium">Comuna y Barrio</p>
                     <p className="text-sm font-bold text-slate-800 mt-1">
-                        {ubicacion.comuna ? `Comuna ${ubicacion.comuna}` : 'No disponible'}
+                        {ubicacion.comuna
+                            ? `Comuna ${ubicacion.comuna}${barrio ? ` · ${barrio}` : ''}`
+                            : datosUtiles?.comuna
+                                ? `${datosUtiles.comuna}${barrio ? ` · ${barrio}` : ''}`
+                                : 'No disponible'}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                         {parcela?.comuna_fuente
                             ? `${etiquetaFuente(parcela.comuna_fuente)} · Confianza ${confianzaComuna}`
-                            : 'Origen del dato no disponible'}
+                            : 'API Datos Útiles USIG · GCBA'}
                     </p>
                 </div>
+
+                {/* Tarjeta 2: Superficie y Catastro USIG (S-M-P) */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                    <p className="text-xs text-slate-500 font-medium">Superficie catastral</p>
+                    <p className="text-xs text-slate-500 font-medium">Superficie y Catastro (S-M-P)</p>
                     <p className="text-sm font-bold text-slate-800 mt-1">
-                        {area != null ? `${area} m²` : 'No disponible'}
+                        {area != null
+                            ? `${area} m²${smpCalculado ? ` · SMP ${smpCalculado}` : ''}`
+                            : seccion && manzana && parcelaNum
+                                ? `Sec. ${seccion} · Manz. ${manzana} · Parc. ${parcelaNum}`
+                                : 'No disponible'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                        {seccion && manzana && parcelaNum
+                            ? `Sección ${seccion} · Manzana ${manzana} · Parcela ${parcelaNum}`
+                            : 'Catastro oficial CABA'}
                     </p>
                 </div>
+
+                {/* Tarjeta 3: Habilitaciones en la Comuna */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                     <p className="text-xs text-slate-500 font-medium">Habilitaciones en la comuna</p>
                     <p className="text-sm font-bold text-slate-800 mt-1">
                         {contexto ? contexto.total_habilitaciones.toLocaleString('es-AR') : 'No disponible'}
                     </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                        Padrón histórico BA Data
+                    </p>
                 </div>
             </div>
 
+            {/* Actividad comercial identificada y avisos de validación */}
             <p className="text-sm text-slate-700">
                 Actividad detectada: <strong>{data.actividad_detectada || 'No identificada'}</strong>
             </p>
@@ -136,48 +246,70 @@ export const ResultPanel = ({ data }) => {
                 </p>
             )}
 
-            {(ficha || parcela) && (
+            {/* Sección detallada con todos los Datos Útiles de USIG y Ficha Catastral */}
+            {(datosUtiles || ficha || parcela || smpCalculado) && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
-                    <h4 className="text-sm font-bold text-slate-800">Parcela y ficha catastral</h4>
-                    <p className="mt-1 text-sm text-slate-600">
-                        SMP: {formatValue(ficha?.smp || parcela?.smp)}
-                        {parcela?.smp_fuente ? ` · Origen: ${etiquetaFuente(parcela.smp_fuente)}` : ''}
-                        {parcela?.seccion ? ` · Sección: ${parcela.seccion}` : ''}
-                        {parcela?.manzana ? ` · Manzana: ${parcela.manzana}` : ''}
-                        {parcela?.parcela ? ` · Parcela: ${parcela.parcela}` : ''}
-                        {ficha?.direccion ? ` · Dirección catastral: ${ficha.direccion}` : ''}
-                        {ficha?.pisos_sobre_rasante != null
-                            ? ` · Pisos: ${ficha.pisos_sobre_rasante}`
-                            : ''}
-                        {ficha?.unidades_funcionales != null
-                            ? ` · Unidades funcionales: ${ficha.unidades_funcionales}`
-                            : ''}
-                    </p>
-                    {parcela?.smp && (
-                        <p className="mt-1 text-xs text-slate-500">
-                            Confianza estructural alta: componentes presentes y normalizados; clave no verificada independientemente.
+                    <h4 className="text-sm font-bold text-slate-800">
+                        Información Catastral y Territorial (USIG · GCBA)
+                    </h4>
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                        <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-500">Barrio</p>
+                            <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                {barrio || 'No disponible'}
+                            </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-500">Sección</p>
+                            <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                {seccion || 'No disponible'}
+                            </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-500">Manzana</p>
+                            <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                {manzana || 'No disponible'}
+                            </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-500">Parcela</p>
+                            <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                {parcelaNum || 'No disponible'}
+                            </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-500">Código Postal</p>
+                            <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                {datosUtiles?.codigo_postal_argentino ||
+                                    datosUtiles?.codigo_postal ||
+                                    'No disponible'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {datosUtiles && (
+                        <p className="mt-2.5 text-xs text-slate-500">
+                            {[
+                                datosUtiles.area_hospitalaria
+                                    ? `Área Hospitalaria: ${datosUtiles.area_hospitalaria}`
+                                    : null,
+                                datosUtiles.comisaria_vecinal
+                                    ? `Comisaría Vecinal: ${datosUtiles.comisaria_vecinal}`
+                                    : datosUtiles.comisaria
+                                        ? `Comisaría: ${datosUtiles.comisaria}`
+                                        : null,
+                                datosUtiles.distrito_escolar
+                                    ? `Distrito Escolar: ${datosUtiles.distrito_escolar}`
+                                    : null,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
                         </p>
-                    )}
-                    {ficha?.ficha && (
-                        <details className="mt-2 text-sm">
-                            <summary className="cursor-pointer font-medium text-blue-700">
-                                Ver todos los atributos originales de EPOK
-                            </summary>
-                            <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {Object.entries(ficha.ficha).map(([key, value]) => (
-                                    <div key={key} className="rounded bg-slate-50 p-2">
-                                        <dt className="text-xs font-semibold text-slate-500">{key}</dt>
-                                        <dd className="break-words text-sm text-slate-700">
-                                            {formatValue(value)}
-                                        </dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        </details>
                     )}
                 </section>
             )}
 
+            {/* Historial de Habilitaciones en la Parcela */}
             {data.habilitaciones_parcela?.length > 0 && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-bold text-slate-800">
@@ -193,37 +325,19 @@ export const ResultPanel = ({ data }) => {
                                     {item.descripcion_rubro || 'Rubro sin descripción'}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {[item.calles || 'Dirección no disponible', item.anio || 'Año no disponible',
-                                        item.superficie != null ? `${item.superficie} m²` : 'Superficie no disponible']
-                                        .join(' · ')}
+                                    {[
+                                        item.calles || 'Dirección no disponible',
+                                        item.anio || 'Año no disponible',
+                                        item.superficie != null ? `${item.superficie} m²` : 'Superficie no disponible',
+                                    ].join(' · ')}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Fecha: {formatValue(item.fecha_habilitacion)}
-                                    {item.fecha_fuente
-                                        ? ` · ${etiquetaFuente(item.fecha_fuente)} · Confianza ${item.fecha_fuente === 'archivo' && item.fecha_habilitacion ? 'Alta' : 'No disponible'}`
-                                        : ''}
-                                </p>
-                                <details className="mt-2 text-xs">
-                                    <summary className="cursor-pointer text-blue-700">
-                                        Ver todos los datos del registro
-                                    </summary>
-                                    <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        {Object.entries(item).map(([key, value]) => (
-                                            <div key={key} className="rounded bg-white p-2">
-                                                <dt className="font-semibold text-slate-500">{key}</dt>
-                                                <dd className="break-words text-slate-700">
-                                                    {formatValue(value)}
-                                                </dd>
-                                            </div>
-                                        ))}
-                                    </dl>
-                                </details>
                             </li>
                         ))}
                     </ul>
                 </section>
             )}
 
+            {/* Atributos del Código Urbanístico */}
             {data.codigo_urbanistico && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-bold text-slate-800">Código Urbanístico de la parcela</h4>
@@ -245,6 +359,7 @@ export const ResultPanel = ({ data }) => {
                 </section>
             )}
 
+            {/* Checklist de Requisitos y Trámites */}
             {data.requisitos?.length > 0 && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-bold text-slate-800">
@@ -282,6 +397,7 @@ export const ResultPanel = ({ data }) => {
                 </section>
             )}
 
+            {/* Competencia o Habilitaciones Cercanas del Mismo Rubro */}
             {data.competencia_cercana?.length > 0 && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-bold text-slate-800">
@@ -299,6 +415,7 @@ export const ResultPanel = ({ data }) => {
                 </section>
             )}
 
+            {/* Trazabilidad de Fuentes */}
             {data.fuentes?.length > 0 && (
                 <section className="mt-5 border-t border-slate-100 pt-4">
                     <h4 className="text-sm font-bold text-slate-800">Fuentes</h4>
@@ -314,7 +431,9 @@ export const ResultPanel = ({ data }) => {
                                     >
                                         {fuente.nombre}
                                     </a>
-                                ) : fuente.nombre}
+                                ) : (
+                                    fuente.nombre
+                                )}
                             </li>
                         ))}
                     </ul>
