@@ -81,7 +81,7 @@ export const SearchBox = ({ onSearch, isLoading = false }) => {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación R2A..."
+                        placeholder="Ej: Quiero abrir una cafetería en Corrientes al 2500"
                         className="w-full bg-transparent border-none py-3 pl-4 pr-12 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 text-base"
                     />
 
