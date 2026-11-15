@@ -1,15 +1,22 @@
 /**
  * @file SearchBox.jsx
- * @description Componente de entrada para consultas urbanas con soporte de texto y futura integración de voz.
+ * @description Componente de entrada para consultas urbanas con soporte de texto, 
+ * botón de limpieza condicional (optimizado para touch y desktop) y atajo de teclado Escape.
  * @author Equipo Frontend - SGI TECBA
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export const SearchBox = ({ onSearch, isLoading = false }) => {
     const [query, setQuery] = useState('');
     const [isListening, setIsListening] = useState(false);
+    
+    // Referencia para controlar el foco del input al limpiar o presionar Escape
+    const inputRef = useRef(null);
 
+    /**
+     * Maneja el envío del formulario de búsqueda.
+     */
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!query.trim() || isLoading) return;
@@ -18,6 +25,27 @@ export const SearchBox = ({ onSearch, isLoading = false }) => {
         }
     };
 
+    /**
+     * Limpia el texto de la caja de búsqueda y devuelve el foco al input.
+     */
+    const handleClear = () => {
+        setQuery('');
+        inputRef.current?.focus();
+    };
+
+    /**
+     * Detecta eventos de teclado en el input (ej. tecla Escape para limpiar).
+     */
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            setQuery('');
+            inputRef.current?.blur(); // Quita el foco opcionalmente al presionar Escape
+        }
+    };
+
+    /**
+     * Simulación de búsqueda por voz (futura integración).
+     */
     const handleVoiceSearch = () => {
         setIsListening(true);
         setTimeout(() => {
@@ -38,25 +66,48 @@ export const SearchBox = ({ onSearch, isLoading = false }) => {
             </div>
 
             {/* Contenedor unificado del buscador (Formulario) */}
-            <form 
-                onSubmit={handleSubmit} 
+            <form
+                onSubmit={handleSubmit}
                 className="flex flex-col sm:flex-row items-center bg-white p-2 rounded-2xl shadow-md gap-2"
             >
-                {/* Campo de Texto Transparente */}
+                {/* Campo de Texto Transparente con input, icono de búsqueda y botón de borrado */}
                 <div className="relative flex-1 w-full flex items-center">
                     <span className="pl-4 text-slate-400 text-lg pointer-events-none">
                         🔍
                     </span>
                     <input
+                        ref={inputRef}
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         placeholder="¿En qué te podemos ayudar? Ej: Apto cafetería en Palermo, zonificación R2A..."
-                        className="w-full bg-transparent border-none py-3 px-4 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 text-base"
+                        className="w-full bg-transparent border-none py-3 pl-4 pr-12 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 text-base"
                     />
+
+                    {/* Botón de limpieza condicional ("X"): Aparece solo si hay texto escrito */}
+                    {query.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleClear}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                            aria-label="Borrar texto de búsqueda"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                                stroke="currentColor"
+                                className="w-4 h-4"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
 
-                {/* Contenedor de Botones (Voz(futuro) + Buscar) */}
+                {/* Contenedor de Botones (Voz + Buscar) */}
                 <div className="flex w-full sm:w-auto gap-2 px-2 pb-2 sm:p-0 sm:pr-2">
                     <button
                         type="button"
@@ -68,16 +119,17 @@ export const SearchBox = ({ onSearch, isLoading = false }) => {
                                 ? 'bg-red-50 text-red-600 animate-pulse'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
-                    >       
-                            <svg /* cambie el inoco por uno de tailwind */
-                            xmlns="http://www.w3.org/2000/svg" 
-                              fill="none" 
-                              viewBox="0 0 24 24" 
-                              strokeWidth={2} 
-                              stroke="currentColor" 
-                              className="w-4 h-4 text-slate-500" >
-                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-                            </svg>
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-4 h-4 text-slate-500"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                        </svg>
                         <span>{isListening ? 'Escuchando...' : 'Voz'}</span>
                     </button>
 
