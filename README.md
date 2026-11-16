@@ -1,10 +1,10 @@
 # SGI TECBA – Sistema de Gestión Inteligente (Habilitación Inteligente)
  
-**Despliegue actual (Vercel):** [habilitacioninteligente.vercel.app](https://habilitacioninteligente.vercel.app/)]
+**Despliegue actual (Vercel):** [habilitacioninteligente.vercel.app](https://habilitacioninteligente.vercel.app/)
 
 ---
 
-## 1. Stack Tecnológico (Front-end)
+## Stack Tecnológico (Front-end)
 El desarrollo del lado del cliente prioriza alto rendimiento, modularidad y cumplimiento de los estándares oficiales del gobierno local:
 
 * **Front-end:** React (`v19.2.8`) y Vite (`v8.3.0`).
@@ -14,7 +14,7 @@ El desarrollo del lado del cliente prioriza alto rendimiento, modularidad y cump
 
 ---
 
-## 2. Componentes Principales y su Funcionalidad
+## Componentes Principales y su Funcionalidad
 
 * **`App.jsx`**: Componente raíz de la aplicación. Gestiona el enrutamiento interno mediante hash (`window.location.hash`), administra los estados globales de búsqueda y coordina la renderización de las vistas principales (`/`, `/rubros`, `/cobertura`, `/fuentes`).
 * **`Navbar.jsx`**: Barra de navegación superior basada en Obelisco V2. Integra los enlaces de las secciones.
