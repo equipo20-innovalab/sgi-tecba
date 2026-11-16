@@ -8,41 +8,21 @@
  */
 
 import { useState } from 'react';
-import ConfirmacionView from './ConfirmacionView';
 import { HomeCards } from './HomeCards';
 import MapView from './MapView';
 import { ResultPanel } from './ResultPanel';
 import { SearchBox } from './SearchBox';
 import TramitesView from './TramitesView';
 
-/**
- * Enumeración de las vistas disponibles dentro del journey de consulta.
- * @readonly
- * @enum {string}
- */
 const VISTAS = {
     RESULTADO: 'resultado',
-    CONFIRMACION: 'confirmacion',
     TRAMITES: 'tramites',
 };
 
-/**
- * Componente auxiliar para mostrar un aviso temporal de datos de prueba.
- * @returns {JSX.Element} Elemento JSX con el banner de advertencia.
- */
-function AvisoDatosDePrueba() {
-    return (
-        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Vista de prueba: los requisitos, plazos y trámites mostrados son contenido fijo
-            y todavía no están vinculados a los datos de esta consulta.
-        </p>
-    );
-}
 
 /**
  * Componente ConsultaJourney
- * Gestiona la navegación interna entre la vista de resultados, confirmación y trámites,
- * organizando visualmente el mapa y los datos bajo una estructura vertical limpia.
+ * Gestiona la navegación interna entre la vista de resultados y trámites de forma directa.
  * 
  * @param {Object} props - Propiedades del componente.
  * @param {Object|null} props.data - Datos de la ubicación y resultados devueltos por la API.
@@ -81,27 +61,14 @@ export function ConsultaJourney({
             {/* Buscador Principal */}
             <SearchBox onSearch={handleSearch} isLoading={isLoading} />
 
-            {/* Vista de Confirmación de Dirección y Datos */}
-            {vista === VISTAS.CONFIRMACION && (
-                <>
-                    <AvisoDatosDePrueba />
-                    <ConfirmacionView
-                        direccionBusqueda={direccionConfirmacion}
-                        ubicacion={data?.ubicacion}
-                        onBack={() => setVista(VISTAS.RESULTADO)}
-                        onVerTramites={() => setVista(VISTAS.TRAMITES)}
-                    />
-                </>
-            )}
-
-            {/* Vista Detallada de Trámites y Requisitos */}
+            {/* Vista Directa de Trámites y Requisitos (Los 5 pasos) */}
             {vista === VISTAS.TRAMITES && (
                 <>
-                    <AvisoDatosDePrueba />
                     <TramitesView
                         direccionBusqueda={direccionConfirmacion}
                         ubicacion={data?.ubicacion}
-                        onBackToConfirmacion={() => setVista(VISTAS.CONFIRMACION)}
+                        data={data}
+                        onBackToConfirmacion={() => setVista(VISTAS.RESULTADO)}
                     />
                 </>
             )}
@@ -136,16 +103,16 @@ export function ConsultaJourney({
                             </div>
                         </div>
 
-                        {/* 2. Paneles de Información y Requisitos (Abajo) */}
+                        {/* 2. Paneles de Información y Botón Directo a Trámites (Abajo) */}
                         <div className="flex flex-col gap-4 w-full">
                             <ResultPanel data={data} />
                             {data && (
                                 <button
                                     type="button"
-                                    onClick={() => setVista(VISTAS.CONFIRMACION)}
+                                    onClick={() => setVista(VISTAS.TRAMITES)}
                                     className="w-full rounded-xl bg-gcba-primary px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-900 shadow-md"
                                 >
-                                    Ver requisitos
+                                    Ver trámites
                                 </button>
                             )}
                         </div>
