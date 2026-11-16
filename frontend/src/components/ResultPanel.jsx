@@ -359,43 +359,7 @@ export const ResultPanel = ({ data }) => {
                 </section>
             )}
 
-            {/* Checklist de Requisitos y Trámites */}
-            {data.requisitos?.length > 0 && (
-                <section className="mt-5 border-t border-slate-100 pt-4">
-                    <h4 className="text-sm font-bold text-slate-800">
-                        Requisitos y trámites ({data.requisitos.length})
-                    </h4>
-                    <ul className="mt-2 space-y-3">
-                        {data.requisitos.map((requisito, index) => (
-                            <li
-                                key={`${requisito.tramite}-${index}`}
-                                className="rounded-lg bg-slate-50 p-3 text-sm"
-                            >
-                                <p className="font-semibold text-slate-800">{requisito.tramite}</p>
-                                {requisito.etapa && (
-                                    <p className="mt-1 text-xs text-slate-500">
-                                        Etapa: {requisito.etapa}
-                                        {requisito.obligatorio ? ` · ${requisito.obligatorio}` : ''}
-                                    </p>
-                                )}
-                                <p className="mt-1 text-slate-600">
-                                    {requisito.documentacion_requerida}
-                                </p>
-                                {requisito.link_oficial && (
-                                    <a
-                                        className="mt-1 inline-block text-blue-700 underline"
-                                        href={requisito.link_oficial}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Información oficial
-                                    </a>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            )}
+           
 
             {/* Competencia o Habilitaciones Cercanas del Mismo Rubro */}
             {data.competencia_cercana?.length > 0 && (
