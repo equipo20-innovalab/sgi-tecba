@@ -324,6 +324,7 @@ python -m src.run_pipeline
 | `habilitaciones` | Una fila por registro del padrón |
 | `rubros_requisitos` | Checklist curado por rubro, etapa y trámite |
 | `dim_requisitos` | Una fila por trámite único de CABA (requiere el esquema del catálogo) |
+| `fact_reglas_habilitacion` | Una fila por rubro × requisito aplicable (5.690 reglas) |
 | `epok_fichas` | Una ficha catastral por SMP, con estado, intentos, último error y fechas de actualización |
 | `codigo_urbanistico` | Una fila por parcela: JSONB completo + columnas aplanadas |
 | `urbanismo_smp` | Panel vigente, una fila por SMP |
@@ -393,6 +394,30 @@ Las 9 gestiones externas tienen URL oficial vigente (verificada el
 resuelven con gestión privada o matriculada. La tabla `dim_requisitos` y la
 vista `requisitos_por_smp` las crea el esquema del catálogo (PR #51); hasta que
 ese cambio esté en `main`, el loader se usa solo con `--dry-run`.
+
+### Matriz rubro ↔ requisito
+
+`db/seed/fact_reglas_habilitacion.csv` tiene 5.690 reglas para 882 códigos de
+rubro distintos. `scripts/generar_fact_reglas_habilitacion.py` asigna
+`tag_familia` por palabras clave sobre la descripción del rubro y cruza esos
+tags con `dim_requisitos.csv`:
+
+```bash
+python scripts/generar_fact_reglas_habilitacion.py --reporte-smp
+python src/export_postgres.py --matriz-requisitos --dry-run
+python src/export_postgres.py --catalogo --matriz-requisitos  # el catálogo primero (FK)
+```
+
+Los 6 requisitos `universal` (`REQ_01`–`REQ_06`) aplican a todos los rubros.
+`REQ_07` es **condicional a partir de 500 m²** en retail y **obligatorio** en
+actividad física; `REQ_10` queda condicional según la categorización de APRA.
+
+Los rubros salen de `habilitaciones_caba_clean.csv`: `codigo_urbanistico_limpio.csv`
+es una tabla de **parcelas por SMP** y no contiene `codigo_rubro` ni
+`nombre_rubro`. Con `--reporte-smp` se informa la cobertura real del cruce
+(45.152 SMP en habilitaciones, 27.709 también presentes en el CU). Si tu
+entorno tiene otro CSV con `codigo_rubro` y `descripcion_rubro`, pasalo con
+`--rubros-csv`.
 
 ## APIs y datos catastrales
 
@@ -503,6 +528,9 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo y client
 - El catálogo `dim_requisitos` reúne 13 trámites únicos (los del script de
   trabajo); el relevamiento estima 20–25, así que falta completar el resto con
   sus fuentes oficiales antes de considerarlo exhaustivo.
+- La matriz `fact_reglas_habilitacion` etiqueta por palabras clave: es una
+  aproximación trazable y reproducible, no una decisión legal por rubro. Los
+  códigos con descripción ambigua pueden necesitar revisión manual.
 - La carga local de las tablas urbanísticas e índice queda bloqueada hasta otorgar los permisos de `CREATE` indicados arriba.
 
 ## Documentación

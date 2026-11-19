@@ -6,13 +6,15 @@ Cubre cuatro fuentes:
    de referencia rubro → trámites + documentación. Idempotente (UPSERT).
 2. `dim_requisitos` (desde `db/seed/dim_requisitos.csv`, versionado): catálogo
    maestro de 13 requisitos únicos de CABA. Idempotente (UPSERT).
-3. `habilitaciones` (desde `data/processed/habilitaciones_caba_clean.csv`, NO
+3. `fact_reglas_habilitacion` (desde `db/seed/fact_reglas_habilitacion.csv`,
+   versionado): matriz rubro ↔ requisito con 5.690 reglas. Idempotente (UPSERT).
+4. `habilitaciones` (desde `data/processed/habilitaciones_caba_clean.csv`, NO
    versionado — se genera corriendo el pipeline): padrón completo de ~217k filas.
    Recarga con TRUNCATE + COPY.
-4. `indice_oportunidad` (desde el padrón): calcula el índice, escribe un
+5. `indice_oportunidad` (desde el padrón): calcula el índice, escribe un
    artefacto reproducible (`indice_oportunidad.csv` + `_meta.json`) y lo carga
    con historial en `indice_oportunidad` / `indice_oportunidad_meta`.
-5. `codigo_urbanistico` + `urbanismo_smp` + `urbanismo_cobertura`: carga el
+6. `codigo_urbanistico` + `urbanismo_smp` + `urbanismo_cobertura`: carga el
    Código Urbanístico aplanado, valida los SMP y cruza el padrón con EPOK
    usando las reglas versionadas de `db/seed/reglas_compatibilidad_urbanistica.json`.
 
@@ -22,6 +24,7 @@ local con la base `innovalab` (o `PGDATABASE`).
 Uso:
     python src/export_postgres.py                  # carga rubros_requisitos
     python src/export_postgres.py --catalogo       # carga dim_requisitos
+    python src/export_postgres.py --matriz-requisitos # carga fact_reglas_habilitacion
     python src/export_postgres.py --habilitaciones # carga el padrón
     python src/export_postgres.py --codigo-urbanistico # CU + urbanismo + artefactos
     python src/export_postgres.py --oportunidad    # índice + artefacto + tabla
@@ -38,6 +41,7 @@ import json
 import os
 import sys
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import psycopg
@@ -51,6 +55,7 @@ if str(RAIZ) not in sys.path:
 
 CSV_SEED = RAIZ / "db" / "seed" / "rubros_requisitos.csv"
 CSV_DIM = RAIZ / "db" / "seed" / "dim_requisitos.csv"
+CSV_FACT = RAIZ / "db" / "seed" / "fact_reglas_habilitacion.csv"
 CSV_HAB = RAIZ / "data" / "processed" / "habilitaciones_caba_clean.csv"
 CSV_CODIGO = CSV_HAB.with_name("codigo_urbanistico_limpio.csv")
 CSV_OPORTUNIDAD = CSV_HAB.with_name("indice_oportunidad.csv")
@@ -200,6 +205,59 @@ def cargar_dim_requisitos(filas: list[dict[str, object]], dry_run: bool = False)
     dsn = os.environ.get("DATABASE_URL")
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.executemany(UPSERT_DIM_SQL, filas)
+    return len(filas)
+
+
+# --- fact_reglas_habilitacion (matriz rubro ↔ requisito) -------------------
+COLUMNAS_FACT = (
+    "codigo_rubro", "requisito_id", "obligatoriedad",
+    "condicion_superficie_min", "condicion_tipo_tramite", "nota_condicion",
+)
+
+UPSERT_FACT_SQL = """
+    INSERT INTO fact_reglas_habilitacion (codigo_rubro, requisito_id, obligatoriedad,
+                                          condicion_superficie_min, condicion_tipo_tramite,
+                                          nota_condicion)
+    VALUES (%(codigo_rubro)s, %(requisito_id)s, %(obligatoriedad)s,
+            %(condicion_superficie_min)s, %(condicion_tipo_tramite)s, %(nota_condicion)s)
+    ON CONFLICT (codigo_rubro, requisito_id) DO UPDATE
+        SET obligatoriedad           = EXCLUDED.obligatoriedad,
+            condicion_superficie_min = EXCLUDED.condicion_superficie_min,
+            condicion_tipo_tramite   = EXCLUDED.condicion_tipo_tramite,
+            nota_condicion           = EXCLUDED.nota_condicion
+"""
+
+
+def leer_fact_reglas(ruta: Path = CSV_FACT) -> list[dict[str, object]]:
+    """Lee la matriz; los campos NUMERIC se convierten a ``Decimal``."""
+    if not ruta.exists():
+        raise FileNotFoundError(f"No se encontró el CSV de la matriz: {ruta}")
+
+    with ruta.open(encoding="utf-8-sig", newline="") as fh:
+        lector = csv.DictReader(fh)
+        faltantes = [c for c in COLUMNAS_FACT if c not in (lector.fieldnames or [])]
+        if faltantes:
+            raise ValueError(f"El CSV de la matriz no tiene las columnas requeridas: {faltantes}")
+
+        filas: list[dict[str, object]] = []
+        for fila in lector:
+            limpia: dict[str, object] = {c: (fila.get(c) or "").strip() for c in COLUMNAS_FACT}
+            if not limpia["codigo_rubro"] or not limpia["requisito_id"]:
+                continue
+            limpia["codigo_rubro"] = Decimal(str(limpia["codigo_rubro"]))
+            limpia["condicion_superficie_min"] = Decimal(str(limpia["condicion_superficie_min"] or 0))
+            limpia["nota_condicion"] = limpia["nota_condicion"] or None
+            filas.append(limpia)
+    return filas
+
+
+def cargar_fact_reglas(filas: list[dict[str, object]], dry_run: bool = False) -> int:
+    """Hace UPSERT de la matriz en Postgres. Devuelve la cantidad escrita."""
+    if dry_run:
+        return len(filas)
+    dsn = os.environ.get("DATABASE_URL")
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.executemany(UPSERT_FACT_SQL, filas)
     return len(filas)
 
 
@@ -1078,6 +1136,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Carga datos de referencia, habilitaciones e índice de oportunidad hacia PostgreSQL.")
     parser.add_argument("--rubros", action="store_true", help="Carga rubros_requisitos.")
     parser.add_argument("--catalogo", action="store_true", help="Carga dim_requisitos (catálogo maestro).")
+    parser.add_argument("--matriz-requisitos", action="store_true", help="Carga fact_reglas_habilitacion (matriz rubro ↔ requisito).")
     parser.add_argument("--habilitaciones", action="store_true", help="Carga el padrón de habilitaciones.")
     parser.add_argument("--codigo-urbanistico", action="store_true", help="Carga y cruza el Código Urbanístico (genera artefactos de urbanismo).")
     parser.add_argument("--reglas", default=str(RUTA_REGLAS_URBANISMO), help="Archivo JSON de reglas de compatibilidad urbanística.")
@@ -1090,11 +1149,12 @@ def main() -> int:
     args = parser.parse_args()
 
     seleccion_explicita = (
-        args.rubros or args.catalogo or args.habilitaciones or args.codigo_urbanistico
-        or args.oportunidad or args.all
+        args.rubros or args.catalogo or args.matriz_requisitos or args.habilitaciones
+        or args.codigo_urbanistico or args.oportunidad or args.all
     )
     cargar_rubros_flag = args.rubros or args.all or not seleccion_explicita
     cargar_catalogo_flag = args.catalogo or args.all
+    cargar_fact_flag = args.matriz_requisitos or args.all
     cargar_hab_flag = args.habilitaciones or args.all
     cargar_codigo_flag = args.codigo_urbanistico or args.all
     cargar_oportunidad_flag = args.oportunidad or args.all
@@ -1113,6 +1173,21 @@ def main() -> int:
             total = contar_en_db("dim_requisitos")
             if total is not None:
                 print(f"[dim_requisitos] total en BD: {total}")
+
+    if cargar_fact_flag:
+        filas_fact = leer_fact_reglas()
+        print(f"[fact_reglas_habilitacion] CSV: {CSV_FACT}")
+        print(f"[fact_reglas_habilitacion] filas leídas: {len(filas_fact)}")
+        if not args.dry_run:
+            err = _requiere_db()
+            if err:
+                return err
+        escritas = cargar_fact_reglas(filas_fact, dry_run=args.dry_run)
+        print(f"[fact_reglas_habilitacion] filas escritas (upsert): {escritas}")
+        if not args.dry_run:
+            total = contar_en_db("fact_reglas_habilitacion")
+            if total is not None:
+                print(f"[fact_reglas_habilitacion] total en BD: {total}")
 
     if cargar_rubros_flag:
         filas = leer_seed()
