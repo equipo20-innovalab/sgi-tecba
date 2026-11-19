@@ -323,6 +323,7 @@ python -m src.run_pipeline
 |---|---|
 | `habilitaciones` | Una fila por registro del padrón |
 | `rubros_requisitos` | Checklist curado por rubro, etapa y trámite |
+| `dim_requisitos` | Una fila por trámite único de CABA (requiere el esquema del catálogo) |
 | `epok_fichas` | Una ficha catastral por SMP, con estado, intentos, último error y fechas de actualización |
 | `codigo_urbanistico` | Una fila por parcela: JSONB completo + columnas aplanadas |
 | `urbanismo_smp` | Panel vigente, una fila por SMP |
@@ -372,6 +373,26 @@ FROM rubros_requisitos
 WHERE rubro IN ('General', 'Cafetería')
 ORDER BY etapa, orden;
 ```
+
+### Catálogo maestro de requisitos
+
+`db/seed/dim_requisitos.csv` normaliza los trámites únicos de CABA (13 filas:
+`REQ_01` a `REQ_13`) con título, etapa, familia, documentación, pasos, URL
+oficial, organismo emisor, fuente normativa y fecha de actualización. Lo genera
+`scripts/generar_dim_requisitos.py`, que también permite reverificar los enlaces:
+
+```bash
+python scripts/generar_dim_requisitos.py            # regenera el CSV
+python scripts/generar_dim_requisitos.py --validar-urls
+python src/export_postgres.py --catalogo --dry-run  # valida la carga
+python src/export_postgres.py --catalogo            # UPSERT en dim_requisitos
+```
+
+Las 9 gestiones externas tienen URL oficial vigente (verificada el
+2026-11-19); los 4 requisitos `checklist` tienen `url_oficial` vacía porque se
+resuelven con gestión privada o matriculada. La tabla `dim_requisitos` y la
+vista `requisitos_por_smp` las crea el esquema del catálogo (PR #51); hasta que
+ese cambio esté en `main`, el loader se usa solo con `--dry-run`.
 
 ## APIs y datos catastrales
 
@@ -479,6 +500,9 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo y client
 - Los estados urbanísticos son señales de fricción, no permisos ni rechazos. La compatibilidad **no evalúa el rubro** y `compatible` no implica uso permitido.
 - La cobertura del cruce urbanístico es parcial: 61,4% de los SMP del padrón tiene fila en el CU y 35,7% de las habilitaciones no puede cruzarse. `no_verificable` refleja esa limitación.
 - `rubros_requisitos` cubre solo un piloto de 2 rubros.
+- El catálogo `dim_requisitos` reúne 13 trámites únicos (los del script de
+  trabajo); el relevamiento estima 20–25, así que falta completar el resto con
+  sus fuentes oficiales antes de considerarlo exhaustivo.
 - La carga local de las tablas urbanísticas e índice queda bloqueada hasta otorgar los permisos de `CREATE` indicados arriba.
 
 ## Documentación

@@ -4,13 +4,15 @@ Cubre cuatro fuentes:
 
 1. `rubros_requisitos` (desde `db/seed/rubros_requisitos.csv`, versionado): tabla
    de referencia rubro → trámites + documentación. Idempotente (UPSERT).
-2. `habilitaciones` (desde `data/processed/habilitaciones_caba_clean.csv`, NO
+2. `dim_requisitos` (desde `db/seed/dim_requisitos.csv`, versionado): catálogo
+   maestro de 13 requisitos únicos de CABA. Idempotente (UPSERT).
+3. `habilitaciones` (desde `data/processed/habilitaciones_caba_clean.csv`, NO
    versionado — se genera corriendo el pipeline): padrón completo de ~217k filas.
    Recarga con TRUNCATE + COPY.
-3. `indice_oportunidad` (desde el padrón): calcula el índice, escribe un
+4. `indice_oportunidad` (desde el padrón): calcula el índice, escribe un
    artefacto reproducible (`indice_oportunidad.csv` + `_meta.json`) y lo carga
    con historial en `indice_oportunidad` / `indice_oportunidad_meta`.
-4. `codigo_urbanistico` + `urbanismo_smp` + `urbanismo_cobertura`: carga el
+5. `codigo_urbanistico` + `urbanismo_smp` + `urbanismo_cobertura`: carga el
    Código Urbanístico aplanado, valida los SMP y cruza el padrón con EPOK
    usando las reglas versionadas de `db/seed/reglas_compatibilidad_urbanistica.json`.
 
@@ -19,6 +21,7 @@ local con la base `innovalab` (o `PGDATABASE`).
 
 Uso:
     python src/export_postgres.py                  # carga rubros_requisitos
+    python src/export_postgres.py --catalogo       # carga dim_requisitos
     python src/export_postgres.py --habilitaciones # carga el padrón
     python src/export_postgres.py --codigo-urbanistico # CU + urbanismo + artefactos
     python src/export_postgres.py --oportunidad    # índice + artefacto + tabla
@@ -47,6 +50,7 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 CSV_SEED = RAIZ / "db" / "seed" / "rubros_requisitos.csv"
+CSV_DIM = RAIZ / "db" / "seed" / "dim_requisitos.csv"
 CSV_HAB = RAIZ / "data" / "processed" / "habilitaciones_caba_clean.csv"
 CSV_CODIGO = CSV_HAB.with_name("codigo_urbanistico_limpio.csv")
 CSV_OPORTUNIDAD = CSV_HAB.with_name("indice_oportunidad.csv")
@@ -133,6 +137,69 @@ def cargar_rubros(filas: list[dict[str, str]], dry_run: bool = False) -> int:
     dsn = os.environ.get("DATABASE_URL")
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.executemany(UPSERT_SQL, filas)
+    return len(filas)
+
+
+# --- dim_requisitos (catálogo maestro) --------------------------------------
+COLUMNAS_DIM = (
+    "requisito_id", "titulo", "etapa", "tag_familia", "documentacion_necesaria",
+    "pasos_a_seguir", "url_oficial", "tipo_accion", "organismo_emisor",
+    "fuente_normativa", "fecha_actualizacion",
+)
+
+UPSERT_DIM_SQL = """
+    INSERT INTO dim_requisitos (requisito_id, titulo, etapa, tag_familia,
+                                documentacion_necesaria, pasos_a_seguir, url_oficial,
+                                tipo_accion, organismo_emisor, fuente_normativa,
+                                fecha_actualizacion)
+    VALUES (%(requisito_id)s, %(titulo)s, %(etapa)s, %(tag_familia)s,
+            %(documentacion_necesaria)s, %(pasos_a_seguir)s, %(url_oficial)s,
+            %(tipo_accion)s, %(organismo_emisor)s, %(fuente_normativa)s,
+            %(fecha_actualizacion)s)
+    ON CONFLICT (requisito_id) DO UPDATE
+        SET titulo                  = EXCLUDED.titulo,
+            etapa                   = EXCLUDED.etapa,
+            tag_familia             = EXCLUDED.tag_familia,
+            documentacion_necesaria = EXCLUDED.documentacion_necesaria,
+            pasos_a_seguir          = EXCLUDED.pasos_a_seguir,
+            url_oficial             = EXCLUDED.url_oficial,
+            tipo_accion             = EXCLUDED.tipo_accion,
+            organismo_emisor        = EXCLUDED.organismo_emisor,
+            fuente_normativa        = EXCLUDED.fuente_normativa,
+            fecha_actualizacion     = EXCLUDED.fecha_actualizacion
+"""
+
+
+def leer_dim_requisitos(ruta: Path = CSV_DIM) -> list[dict[str, object]]:
+    """Lee el catálogo maestro; las celdas vacías de URL/fecha pasan a NULL."""
+    if not ruta.exists():
+        raise FileNotFoundError(f"No se encontró el CSV del catálogo: {ruta}")
+
+    with ruta.open(encoding="utf-8-sig", newline="") as fh:
+        lector = csv.DictReader(fh)
+        faltantes = [c for c in COLUMNAS_DIM if c not in (lector.fieldnames or [])]
+        if faltantes:
+            raise ValueError(f"El CSV del catálogo no tiene las columnas requeridas: {faltantes}")
+
+        filas: list[dict[str, object]] = []
+        for fila in lector:
+            limpia: dict[str, object] = {c: (fila.get(c) or "").strip() for c in COLUMNAS_DIM}
+            if not limpia["requisito_id"]:
+                continue
+            for opcional in ("url_oficial", "fecha_actualizacion"):
+                if not limpia[opcional]:
+                    limpia[opcional] = None
+            filas.append(limpia)
+    return filas
+
+
+def cargar_dim_requisitos(filas: list[dict[str, object]], dry_run: bool = False) -> int:
+    """Hace UPSERT del catálogo en Postgres. Devuelve la cantidad escrita."""
+    if dry_run:
+        return len(filas)
+    dsn = os.environ.get("DATABASE_URL")
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.executemany(UPSERT_DIM_SQL, filas)
     return len(filas)
 
 
@@ -1010,6 +1077,7 @@ def _requiere_db() -> int | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Carga datos de referencia, habilitaciones e índice de oportunidad hacia PostgreSQL.")
     parser.add_argument("--rubros", action="store_true", help="Carga rubros_requisitos.")
+    parser.add_argument("--catalogo", action="store_true", help="Carga dim_requisitos (catálogo maestro).")
     parser.add_argument("--habilitaciones", action="store_true", help="Carga el padrón de habilitaciones.")
     parser.add_argument("--codigo-urbanistico", action="store_true", help="Carga y cruza el Código Urbanístico (genera artefactos de urbanismo).")
     parser.add_argument("--reglas", default=str(RUTA_REGLAS_URBANISMO), help="Archivo JSON de reglas de compatibilidad urbanística.")
@@ -1022,13 +1090,29 @@ def main() -> int:
     args = parser.parse_args()
 
     seleccion_explicita = (
-        args.rubros or args.habilitaciones or args.codigo_urbanistico
+        args.rubros or args.catalogo or args.habilitaciones or args.codigo_urbanistico
         or args.oportunidad or args.all
     )
     cargar_rubros_flag = args.rubros or args.all or not seleccion_explicita
+    cargar_catalogo_flag = args.catalogo or args.all
     cargar_hab_flag = args.habilitaciones or args.all
     cargar_codigo_flag = args.codigo_urbanistico or args.all
     cargar_oportunidad_flag = args.oportunidad or args.all
+
+    if cargar_catalogo_flag:
+        filas_dim = leer_dim_requisitos()
+        print(f"[dim_requisitos] CSV: {CSV_DIM}")
+        print(f"[dim_requisitos] filas leídas: {len(filas_dim)}")
+        if not args.dry_run:
+            err = _requiere_db()
+            if err:
+                return err
+        escritas = cargar_dim_requisitos(filas_dim, dry_run=args.dry_run)
+        print(f"[dim_requisitos] filas escritas (upsert): {escritas}")
+        if not args.dry_run:
+            total = contar_en_db("dim_requisitos")
+            if total is not None:
+                print(f"[dim_requisitos] total en BD: {total}")
 
     if cargar_rubros_flag:
         filas = leer_seed()
