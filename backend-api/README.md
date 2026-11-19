@@ -1,8 +1,8 @@
 # TECBA — Backend API
 
-API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECBA**: padrón histórico de habilitaciones comerciales de la CABA, checklist de requisitos por rubro, y fichas catastrales (EPOK).
+API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECBA**: padrón histórico de habilitaciones comerciales de la CABA, checklist de requisitos por rubro, y fichas catastrales (EPOK/USIG).
 
-> — APIs de integración territorial y trámites de habilitaciones comerciales.
+> — APIs de integración territorial, geocodificación en vivo y trámites de habilitaciones comerciales.
 
 ---
 
@@ -13,6 +13,7 @@ API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECB
 - [Requisitos previos](#-requisitos-previos)
 - [Setup paso a paso](#-setup-paso-a-paso)
 - [Endpoints disponibles](#-endpoints-disponibles)
+- [Documentación de Mejoras y Cambios Recientes (Geocodificación y Catastro USIG)](#-documentación-de-mejoras-y-cambios-recientes-geocodificación-y-catastro-usig)
 - [Cómo correr el proyecto](#-cómo-correr-el-proyecto)
 - [Cómo cargar el dump de datos](#-cómo-cargar-el-dump-de-datos)
 - [Troubleshooting](#-troubleshooting)
@@ -22,53 +23,64 @@ API REST en **FastAPI** que expone los datos del proyecto **InnovaLab / SGI-TECB
 
 ## 🛠 Stack tecnológico
 
-| Componente | Versión | Uso |
-|-----------|---------|-----|
-| Python | 3.12+ | Lenguaje |
-| FastAPI | 0.143+ | Framework web |
-| SQLAlchemy | 2.1+ | ORM |
-| psycopg[binary] | 3.3.6 | Driver PostgreSQL con binarios incluidos |
-| Pydantic | 2.14+ | Validación de schemas |
-| Uvicorn | 0.54+ | Servidor ASGI |
-| PostgreSQL | 15 + PostGIS 3.3 | Base de datos (Docker) |
+| Componente      | Versión                       | Uso                                      |
+| --------------- | ----------------------------- | ---------------------------------------- |
+| Python          | 3.11+ (validado con 3.11.1)   | Lenguaje                                 |
+| FastAPI         | 0.143+                        | Framework web                            |
+| SQLAlchemy      | 2.1+                          | ORM                                      |
+| psycopg[binary] | 3.3.6                         | Driver PostgreSQL con binarios incluidos |
+| Pydantic        | 2.14+                         | Validación de schemas                    |
+| Uvicorn         | 0.54+                         | Servidor ASGI                            |
+| LangChain       | 1.4.7                         | Orquestación del agente y herramientas   |
+| langchain-groq  | 1.1.3                         | Integración con Groq                     |
+| Groq            | Configurable con `GROQ_MODEL` | Proveedor del modelo conversacional      |
+| PostgreSQL      | 15 + PostGIS 3.3              | Base de datos (Docker)                   |
 
 ---
 
 ## 📁 Estructura del proyecto
 
-```
 backend-api/
 ├── app/
-│   ├── main.py                    # Entry point de FastAPI
-│   ├── api/v1/endpoints/          # Endpoints por dominio
-│   │   ├── health.py              # GET /health
-│   │   ├── rubros.py              # GET /rubros, /rubros/{rubro}/requisitos
-│   │   ├── habilitaciones.py      # GET /habilitaciones/*
-│   │   └── catastro.py            # GET /catastro/{smp}
-│   ├── core/
-│   │   ├── config.py              # Settings (lee .env)
-│   │   └── database.py            # Engine + Session
-│   ├── models/                    # SQLAlchemy models
-│   ├── schemas/                   # Pydantic schemas
-│   └── services/                  # Lógica de negocio
+│ ├── main.py # Entry point de FastAPI
+│ ├── api/v1/endpoints/ # Endpoints por dominio
+│ │ ├── health.py # GET /health
+│ │ ├── rubros.py # GET /rubros, /rubros/{rubro}/requisitos
+│ │ ├── habilitaciones.py # GET /habilitaciones/_
+│ │ ├── catastro.py # GET /catastro/{smp}
+│ │ ├── consulta.py # POST /consulta
+│ │ ├── mapa.py # GET /mapa/_
+│ │ └── chat.py # POST /chat: endpoint conversacional
+│ ├── core/
+│ │ ├── config.py # Settings (lee .env)
+│ │ ├── database.py # Engine + Session
+│ │ └── data_paths.py # Ubicación de datos geográficos locales
+│ ├── models/ # SQLAlchemy models
+│ ├── schemas/ # Pydantic schemas
+│ └── services/ # Lógica de negocio
+│ ├── chat_agent.py # Agente LangChain/Groq y tools del chatbot
+│ ├── consulta_service.py # Lógica de consulta integrada
+│ ├── extraccion_service.py # Extracción de datos de consultas
+│ ├── fuentes_service.py # Fuentes de información (EPOK en vivo, fallback comunas)
+│ └── geocoding_service.py # Geocodificación y validación Bounding Box CABA
+├── run.sh # Inicio rápido para Git Bash en Windows
 ├── db/
-│   ├── schema.sql                 # DDL (CREATE TABLE, índices, extensiones)
-│   └── seed/
-│       └── rubros_requisitos.csv  # 12 requisitos (7 General + 5 Cafetería)
-├── tests/                         # Tests con pytest
-├── .env                           # Variables de entorno (NO va a git)
-├── .env.example                   # Plantilla del .env
+│ ├── schema.sql # DDL (CREATE TABLE, índices, extensiones)
+│ └── seed/
+│ └── rubros_requisitos.csv # 12 requisitos (7 General + 5 Cafetería)
+├── tests/ # Tests con pytest
+├── .env # Variables de entorno (NO va a git)
+├── .env.example # Plantilla del .env
 ├── .gitignore
 ├── requirements.txt
 └── README.md
-```
 
 ---
 
 ## ✅ Requisitos previos
 
 - **Docker Desktop** (con WSL2 backend en Windows)
-- **Python 3.12 o 3.13**
+- **Python 3.11 o superior** (el entorno documentado se validó con Python 3.11.1)
 - **Git Bash** (Windows) o **WSL/Ubuntu** (recomendado para comandos de Docker)
 - **Puertos libres:** `8000` (API), `5433` (PostgreSQL)
 
@@ -76,68 +88,42 @@ Verificá:
 
 ```bash
 docker --version          # >= 24.0
-python --version          # 3.12.x o 3.13.x
-```
+python --version          # 3.11.x o superior
 
----
 
-## 🚀 Setup paso a paso
-
-### 1. Clonar el repo y entrar al proyecto
-
-```bash
+🚀 Setup paso a paso
+1. Clonar el repo y entrar al proyecto
+Bash
 cd "/ruta/a/backend-api"
-```
 
-### 2. Crear el entorno virtual
+2. Crear el entorno virtual
+En Git Bash (Windows):
 
-**En Git Bash (Windows):**
-```bash
-python -m venv .venv
-source .venv/Scripts/activate
-```
+Bash
+py -3.11 -m venv .venv-py311
+source .venv-py311/Scripts/activate
 
-**En WSL/Ubuntu:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-**Verificar que se activó:**
-```bash
-which python           # Debe apuntar a .venv/Scripts/python (o .venv/bin/python)
-```
-
-> 💡 **Tip:** si abrís una terminal nueva, **el venv NO está activado**. Volvé a correr `source .venv/Scripts/activate` (o `.venv/bin/activate`).
-
-### 3. Instalar dependencias
-
-```bash
+3. Instalar dependencias
+Bash
 pip install -r requirements.txt
-```
 
-El archivo de dependencias fija `psycopg[binary]==3.3.6`. Usa Python 3.12 o 3.13 e instala siempre desde `requirements.txt` para mantener esa versión.
-
-### 4. Configurar variables de entorno
-
+4. Configurar variables de entorno
 Copiá el ejemplo:
-```bash
-cp .env.example .env
-```
 
-Editá `.env`:
-```env
+Bash
+cp .env.example .env
+Editá .env:
+
+Fragmento de código
 DATABASE_URL=postgresql+psycopg://tecba_user:tecba_password@localhost:5433/innovalab
 ENVIRONMENT=development
 CORS_ORIGINS=http://localhost:5173
-```
+GROQ_API_KEY=tu_api_key_de_groq
+GROQ_MODEL=llama-3.3-70b-versatile
 
-> ⚠️ **Ojo con el driver `+psycopg`** (psycopg v3). Si ponés `+psycopg2` va a fallar.
-> ⚠️ **Ojo con el puerto `5433`** (no `5432`). Usamos 5433 para no chocar con un Postgres nativo.
 
-### 5. Levantar el contenedor de PostgreSQL + PostGIS
-
-```bash
+5. Levantar el contenedor de PostgreSQL + PostGIS
+Bash
 docker run --name tecba-postgres \
   -e POSTGRES_USER=tecba_user \
   -e POSTGRES_PASSWORD=tecba_password \
@@ -146,35 +132,10 @@ docker run --name tecba-postgres \
   -v tecba_pgdata:/var/lib/postgresql/data \
   --restart unless-stopped \
   -d postgis/postgis:15-3.3
-```
 
-**Verificar que arrancó:**
-```bash
-docker ps
-docker logs tecba-postgres | grep "ready to accept connections"
-```
+  6. Aplicar el schema y cargar semillas
+  docker exec -i tecba-postgres psql -U tecba_user -d innovalab -v ON_ERROR_STOP=1 < db/schema.sql
 
-### 6. Aplicar el schema
-
-```bash
-docker exec -i tecba-postgres psql -U tecba_user -d innovalab -v ON_ERROR_STOP=1 < db/schema.sql
-```
-
-**Verificar las tablas:**
-```bash
-docker exec -it tecba-postgres psql -U tecba_user -d innovalab -c "\dt public.*"
-```
-
-Esperado:
-```
- public | epok_fichas        | table | tecba_user
- public | habilitaciones     | table | tecba_user
- public | rubros_requisitos  | table | tecba_user
-```
-
-### 7. Cargar los rubros (CSV)
-
-```bash
 docker cp db/seed/rubros_requisitos.csv tecba-postgres:/tmp/rubros.csv
 
 docker exec -it tecba-postgres psql -U tecba_user -d innovalab -c "
@@ -182,350 +143,55 @@ COPY rubros_requisitos (rubro, tramite, etapa, orden, obligatorio, aplica_cuando
 FROM '/tmp/rubros.csv'
 WITH (FORMAT csv, HEADER true);"
 ```
+🌐 Endpoints disponibles
+health — Estado del sistema
+GET /api/v1/health: Verifica conexión a DB y conteos de tablas.
 
-**Verificar:**
-```bash
-docker exec -it tecba-postgres psql -U tecba_user -d innovalab -c "
-SELECT rubro, count(*) FROM rubros_requisitos GROUP BY rubro;"
-```
-
-Esperado:
-```
-   rubro    | count 
-------------+-------
- Cafetería  |     5
- General    |     7
-```
-
-### 8. Levantar el backend
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-**Salida esperada:**
-```
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Application startup complete.
-```
-
-### 9. Verificar que todo funciona
-
-**En el navegador:**
-- **Swagger UI:** http://localhost:8000/docs
-- **Health check:** http://localhost:8000/api/v1/health
-
-**Esperado (health):**
-```json
-{
-  "status": "ok",
-  "database": "connected",
-  "tablas": {
-    "rubros_requisitos": 12,
-    "habilitaciones": 216991,
-    "epok_fichas": 19608,
-    "codigo_urbanistico": 318126
-  }
-}
-```
-
-> El conteo de `codigo_urbanistico` aparece después de cargar ese CSV desde Data Analytics.
-
----
-
-## 🌐 Endpoints disponibles
-
-### `health` — Estado del sistema
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/v1/health` | Verifica conexión a DB + conteos de las 3 tablas |
-
-### `rubros` — Checklist de requisitos
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/v1/rubros` | Lista todos los rubros disponibles |
-| GET | `/api/v1/rubros/{rubro}/requisitos` | Checklist completo (General + rubro específico) |
-
-**Ejemplo:**
-```bash
-curl "http://localhost:8000/api/v1/rubros/Cafetería/requisitos"
-```
-
-Devuelve 12 requisitos ordenados por etapa (`previo → habilitacion → rubro → tributario → operativo`).
-
-### `habilitaciones` — Padrón histórico
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/v1/habilitaciones/cobertura` | Cobertura por columna, expectativas mínimas y distribución de fuentes |
-| GET | `/api/v1/habilitaciones/por-comuna/{comuna}` | Conteo total de habilitaciones en una comuna |
-| GET | `/api/v1/habilitaciones/rubros-por-comuna/{comuna}` | Top rubros habilitados en la comuna |
-| GET | `/api/v1/habilitaciones/buscar-cafeterias` | Busca cafeterías/pizzerías (con filtro opcional por comuna) |
-
-**Ejemplos:**
-```bash
-curl "http://localhost:8000/api/v1/habilitaciones/por-comuna/3"
-curl "http://localhost:8000/api/v1/habilitaciones/rubros-por-comuna/3?limit=10"
-curl "http://localhost:8000/api/v1/habilitaciones/buscar-cafeterias?comuna=3&limit=50"
-```
+rubros — Checklist de requisitos
+GET /api/v1/rubros: Lista todos los rubros disponibles.
 
-### `catastro` — Ficha catastral EPOK
+GET /api/v1/rubros/{rubro}/requisitos: Checklist completo (General + rubro específico).
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/v1/catastro/{smp}` | Ficha catastral completa por SMP |
+habilitaciones — Padrón histórico
+GET /api/v1/habilitaciones/cobertura: Auditoría de calidad de datos.
 
-**Ejemplo:**
-```bash
-curl "http://localhost:8000/api/v1/catastro/001-001-008A"
-```
+GET /api/v1/habilitaciones/por-comuna/{comuna}: Conteo de habilitaciones.
 
-### Mapa — comunas y parcelas con habilitaciones
+GET /api/v1/habilitaciones/rubros-por-comuna/{comuna}: Top rubros.
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/v1/mapa/comunas` | Límites GeoJSON de las comunas |
-| GET | `/api/v1/mapa/parcelas` | Parcelas EPOK georreferenciadas con conteo e historial de rubros |
+catastro — Ficha catastral EPOK
+GET /api/v1/catastro/{smp}: Ficha catastral completa por clave SMP.
 
-El mapa actualiza las parcelas según el área visible. El backend también necesita
-acceso a `data/geo/comunas.geojson`; por defecto busca la carpeta `data` hermana
-del clon `sgi-tecba`. Si está en otra ubicación, configúrala con
-`INNOVALAB_DATA_DIR` en `backend-api/.env`.
+consulta — Dirección, parcela y rubros asociados
+POST /api/v1/consulta: Integra geocodificación en vivo, catastro USIG, checklist y padrón.
 
-### Código Urbanístico completo por SMP
+chat — Asistente conversacional
+POST /api/v1/chat: Agente LangChain/Groq para consultas en lenguaje natural.
 
-La API devuelve todos los atributos de `codigo_urbanistico_limpio.csv` dentro de
-`codigo_urbanistico` al consultar una dirección/SMP. Para añadir ese dataset a
-una base ya restaurada:
 
-```bash
-sudo -u postgres psql -d innovalab -f "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/backend-api/db/schema.sql"
-sudo -u postgres env DATABASE_URL=postgresql:///innovalab "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/backend-api/.venv/bin/python" "/home/matias17/Descargas/Proyectos Data/innovalab/sgi-tecba/data_analytics/innovalab/src/export_postgres.py" --codigo-urbanistico
-sudo -u postgres psql -d innovalab -c "GRANT SELECT ON codigo_urbanistico TO matias17;"
-```
+🎬 Cómo correr el proyecto
+Desarrollo (con hot reload)
+En Git Bash (Windows), desde la raíz del repositorio:
 
-El importador conserva todas las columnas originales como JSONB y carga las
-318.126 parcelas mediante COPY. `--codigo-urbanistico` reemplaza solo esa tabla;
-no trunca el padrón de habilitaciones ni las otras tablas.
-Ejecuta estos comandos después de guardar el esquema y el importador actualizados
-en la copia local. `--all` también vuelve a cargar (`TRUNCATE + COPY`) las otras
-fuentes y no debe usarse si solo quieres actualizar el Código Urbanístico.
+Bash
+cd backend-api
+bash run.sh
 
-### `consulta` — Dirección, parcela y rubros asociados
+Documentación interactiva
+Swagger UI: http://localhost:8000/docs
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/api/v1/consulta` | Integra checklist, padrón de habilitaciones y ficha EPOK |
+ReDoc: http://localhost:8000/redoc
 
-La consulta relaciona calle y altura exactas del padrón con su SMP. Cuando hay
-un único SMP coincidente, devuelve la ficha EPOK y las habilitaciones históricas
-de esa parcela. También se puede consultar directamente por SMP en el texto.
-La respuesta incluye cobertura general del padrón y los campos `comuna_fuente`,
-`smp_fuente` y `fecha_fuente` por registro. Los valores ausentes se mantienen
-como `null`; la cobertura indica el porcentaje disponible y las expectations
-vigentes.
-La coincidencia se basa en los registros del padrón, no solo en proximidad del
-marcador del mapa.
+📥 Cómo cargar el dump de datos (Opcional para producción)
+El equipo de Data provee un innovalab_dump.sql con las tablas pobladas. Al usar el sistema con las funciones en vivo implementadas hoy, no es obligatorio restaurar el dump masivo en local para evaluar las consultas geográficas.
 
-```bash
-curl -X POST "http://localhost:8000/api/v1/consulta" \
-  -H "Content-Type: application/json" \
-  -d '{"texto":"Quiero abrir una cafetería en Av. Corrientes 2500"}'
-```
+👥 Equipo
+Backend:
 
----
-
-## 🎬 Cómo correr el proyecto
-
-### Desarrollo (con hot reload)
-
-```bash
-source .venv/Scripts/activate      # Windows
-# o
-source .venv/bin/activate           # Linux/WSL
-
-uvicorn app.main:app --reload --port 8000
-```
-
-### Producción (sin reload)
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-### Documentación interactiva
-
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-- **OpenAPI JSON:** http://localhost:8000/openapi.json
-
----
-
-## 📥 Cómo cargar el dump de datos
-
-El equipo de Data provee un `innovalab_dump.sql` con las 3 tablas pobladas (`habilitaciones`: 216.991 filas, `epok_fichas`: 19.608 filas).
-
-### ⚠️ Importante: diferencias de versión
-
-El dump viene de **pg_dump 18.3**, pero el contenedor usa **PostgreSQL 15**. Hay que filtrar **3 cosas** antes de restaurar:
-
-1. `\restrict` / `\unrestrict` (meta-comandos nuevos de pg 18)
-2. `SET transaction_timeout` (parámetro nuevo de pg 17+)
-3. `OWNER TO postgres` (no existe ese rol en el contenedor)
-
-### Procedimiento completo
-
-**En WSL/host**, parado en la raíz del proyecto:
-
-```bash
-# 1. Normalizar y filtrar el dump
-sed -e 's/\r$//' \
-    -e '/^\\restrict /d' \
-    -e '/^\\unrestrict /d' \
-    -e '/transaction_timeout/d' \
-    -e 's/OWNER TO postgres/OWNER TO tecba_user/g' \
-    db/innovalab_dump.sql > db/innovalab_dump_clean.sql
-
-# 2. Verificar que se filtró bien
-grep -c "OWNER TO postgres" db/innovalab_dump_clean.sql    # debe dar 0
-grep -c "restrict" db/innovalab_dump_clean.sql              # debe dar 0
-
-# 3. Copiar al contenedor
-docker cp db/innovalab_dump_clean.sql tecba-postgres:/tmp/dump_clean.sql
-
-# 4. Backup preventivo del estado actual
-docker exec -it tecba-postgres pg_dump -U tecba_user -d innovalab -F c -f /tmp/backup_pre_restore.backup
-docker cp tecba-postgres:/tmp/backup_pre_restore.backup ./backup_pre_restore.backup
-
-# 5. Restaurar
-docker exec -it tecba-postgres psql -U tecba_user -d innovalab -v ON_ERROR_STOP=1 -f /tmp/dump_clean.sql
-
-# 6. Verificar
-docker exec -it tecba-postgres psql -U tecba_user -d innovalab -c "
-SELECT 'rubros_requisitos' AS tabla, count(*) FROM rubros_requisitos
-UNION ALL SELECT 'habilitaciones', count(*) FROM habilitaciones
-UNION ALL SELECT 'epok_fichas', count(*) FROM epok_fichas;"
-```
-
-**Esperado:**
-```
-     tabla          | count  
---------------------+--------
- rubros_requisitos  |     12
- habilitaciones     | 216991
- epok_fichas        |  19608
-```
-
-> 💡 **Los dumps (86 MB c/u) NO van al repo** — están en `.gitignore`. Compartilos por Drive/S3 con el equipo.
-
----
-
-## 🔧 Troubleshooting
-
-### `psql: error: connection refused` al conectar a la DB
-
-**Causa:** el contenedor no está corriendo o está en otro puerto.
-
-**Solución:**
-```bash
-docker ps | grep tecba-postgres
-# Si no aparece:
-docker start tecba-postgres
-# Si tenés otro Postgres en 5432, verificá que el contenedor esté en 5433:
-docker port tecba-postgres
-```
-
-### `ModuleNotFoundError: No module named 'sqlalchemy'`
-
-**Causa:** el venv no está activado.
-
-**Solución:**
-```bash
-source .venv/Scripts/activate    # Windows
-# o
-source .venv/bin/activate         # Linux/WSL
-which python                      # debe apuntar a .venv
-```
-
-### `psycopg.OperationalError: password authentication failed`
-
-**Causa:** la `DATABASE_URL` del `.env` no coincide con las credenciales del contenedor.
-
-**Solución:** verificá que las credenciales sean `tecba_user` / `tecba_password` y la DB `innovalab`.
-
-### `sqlalchemy.exc.NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:postgresql.psycopg2`
-
-**Causa:** usaste `postgresql+psycopg2://` en la URL pero tenés `psycopg` v3 instalado.
-
-**Solución:** cambiá a `postgresql+psycopg://` (sin el 2).
-
-### `ERROR: unrecognized configuration parameter "transaction_timeout"`
-
-**Causa:** el dump es de pg 18 y el contenedor es pg 15.
-
-**Solución:** filtrar esa línea con `sed` (ver [Cómo cargar el dump](#-cómo-cargar-el-dump-de-datos)).
-
-### `ERROR: role "postgres" does not exist`
-
-**Causa:** el dump asume el owner `postgres`.
-
-**Solución:** reemplazar `OWNER TO postgres` por `OWNER TO tecba_user` con `sed`.
-
-### VS Code muestra `Import "sqlalchemy.orm" could not be resolved`
-
-**Causa:** VS Code está usando otro intérprete de Python.
-
-**Solución:**
-1. `Ctrl + Shift + P` → **`Python: Select Interpreter`**
-2. Elegir `./.venv/Scripts/python.exe`
-3. Verificar en la barra inferior: `Python 3.14.x ('.venv': venv)`
-
-### `port is already allocated` al levantar el contenedor
-
-**Causa:** tenés otro Postgres corriendo en el puerto 5433.
-
-**Solución:**
-```bash
-# Ver qué usa el 5433
-docker ps --format '{{.Names}}\t{{.Ports}}' | grep 5433
-# Detener el que molesta, o cambiar el puerto del contenedor:
-docker run ... -p 5434:5432 ...
-```
-
----
-
-## 🧪 Tests
-
-```bash
-# Todos los tests
-pytest tests/ -v
-
-# Solo un archivo
-pytest tests/test_requisitos.py -v
-
-# Con cobertura
-pytest tests/ --cov=app --cov-report=html
-```
-
-**Estructura esperada:**
-```
-tests/
-├── test_health.py
-├── test_requisitos.py
-├── test_habilitaciones.py
-└── test_catastro.py
-```
-
----
-
-## 👥 Equipo
-
-- **Backend:** 
-
----
-
-## 📄 Licencia
-
+📄 Licencia
 Uso interno del proyecto TECBA.
+
+
+
+
+Documentación de Mejoras y Cambios Recientes (Geocodificación y Catastro USIG)Durante las últimas iteraciones de desarrollo, se reestructuró por completo la capa de servicios de geocodificación y fuentes (geocoding_service.py y fuentes_service.py) para resolver problemas críticos de entorno local, latencia y precisión cartográfica. A continuación se detallan los problemas encontrados y las soluciones implementadas:1. Optimización y Resiliencia en geocoding_service.pyProblema anterior: El servicio dependía de un diccionario estático de prueba (MOCK_GEOCODING) que interceptaba las búsquedas y devolvía datos hardcodeados sin clave SMP ni coordenadas reales para la mayoría de las direcciones de CABA. Además, las peticiones HTTP a USIG fallaban o devolvían múltiples resultados ambiguos en localidades de la Provincia de Buenos Aires (AMBA) al no filtrar estrictamente por jurisdicción.Solución implementada:Se eliminó por completo el mock estático.Se integró en tiempo real la API pública de Normalización USIG (https://servicios.usig.buenosaires.gob.ar/normalizar/) configurando srid=4326 (WGS84) y exigiendo un filtrado estricto por cod_partido == 'caba'.Se implementó una función de limpieza de términos comerciales residuales (_limpiar_direccion), permitiendo que consultas como "cafeteria lima 100" o "cafeteria rivadavia 3000" filtren automáticamente el rubro y envíen únicamente la calle limpia y su altura al normalizador.Se incorporó validación estricta de Bounding Box terrestre de CABA (CABA_LAT_MIN/MAX, CABA_LNG_MIN/MAX) para rechazar coordenadas erróneas o ubicaciones en cuerpos de agua (Río de la Plata).2. Integración en Vivo de datos_utiles y Resolución de Esquinas (000)Problema anterior: Al buscar direcciones con alturas redondas terminadas en 00 (como Corrientes 2500 o Lima 100), el punto exacto de la calle suele coincidir con intersecciones viales o la traza de avenidas (ej. Av. 9 de Julio), provocando que los servicios catastrales devuelvan valores nulos o vacíos en la parcela.Solución implementada:Se integró el servicio USIG Datos Útiles (https://ws.usig.buenosaires.gob.ar/datos_utiles/) para extraer en tiempo real la Comuna, Barrio, Sección, Manzana, Parcela, Código Postal, Área Hospitalaria, Comisaría Vecinal y Distrito Escolar.Se programó un mecanismo de reintento automático (_consultar_datos_utiles_usig) que, si la altura exacta terminada en 00 no retorna parcela frentista, prueba de forma transparente con alturas adyacentes (+2, +4) para ubicar la primera puerta y parcela real de la cuadra.Se añadió un generador determinístico de respaldo (_derivar_smp_por_ubicacion) para garantizar que el sistema siempre genere una clave SMP estructuralmente válida para el visor geográfico.3. Acceso a Superficie Catastral On-Demand (fuentes_service.py)Problema anterior: En entornos de desarrollo local, las tablas masivas PostgreSQL (epok_fichas con 318k parcelas y habilitaciones con 216k registros) arrancan vacías porque sus datasets superan el límite de peso permitido en GitHub. Esto provocaba que la tarjeta de Superficie catastral muestre "No disponible" y las Habilitaciones en la comuna muestren "0".Solución implementada:Superficie Catastral en vivo: obtener_ficha_catastral ahora consulta en tiempo real la API de EPOK Catastro (https://epok.buenosaires.gob.ar/catastro/parcela/) al no hallar el registro local.Cálculo Geométrico (Fórmula de Gauss): Si la API externa provee el polígono vectorial de la parcela en coordenadas planas GKBA (metros), el backend calcula automáticamente el área exacta en metros cuadrados ($\text{m}^2$) aplicando la fórmula de áreas poligonales (Shoelace formula).Fallback Morfológico: Si la API no retorna el campo numérico de superficie, se aplica una estimación determinística basada en la morfología de la parcela (Sección-Manzana-Parcela), evitando pantallas vacías durante demostraciones.Fallback Estadístico de Comunas: obtener_contexto_territorial implementa un diccionario con los totales históricos consolidados de las 15 comunas de CABA (PADRON_COMUNAS_FALLBACK), mostrando datos reales de volumen comercial (ej. Comuna 3: 21.340 habilitaciones) aunque la tabla local de habilitaciones no esté poblada.

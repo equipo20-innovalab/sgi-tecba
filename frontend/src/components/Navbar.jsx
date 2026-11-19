@@ -27,19 +27,24 @@ export const Navbar = ({ currentPath = '/' }) => {
     const esInicio = currentPath === '/';
 
     return (
-        <header className="o-header navbar bg-white" style={{ borderBottom: '4px solid #F6C243' }} role="banner">
+        <header className="o-header navbar bg-white" style={{ borderBottom: '6px solid #F6C243' }} role="banner">
             <a href="#main" className="skip-to-main-content-link">
                 Saltar al contenido principal
             </a>
 
             <div className="container header-container d-flex align-items-center flex-wrap">
-                <a href="#/" className="navbar-brand me-4" aria-label="Ir al inicio del SGI TECBA">
-                    <img
-                        src="/logo_ba_corto.png"
-                        alt="Gobierno de la Ciudad de Buenos Aires - Inicio"
-                        style={{ height: '200px' }}
-                    />
-                </a>
+            <a 
+                href="#/" 
+                className="navbar-brand me-4 d-flex align-items-center" 
+                style={{ outline: 'none', boxShadow: 'none', border: 'none' }}
+                aria-label="Ir al inicio del SGI TECBA"
+            >
+                <img
+                    src="/logo_ba_corto.png"
+                    alt="Habilitacion Inteligente - Inicio"
+                    style={{ height: '60px', width: 'auto', display: 'block' }}
+                />
+            </a>
 
                 <div className="d-none d-lg-flex align-items-center">
                     <nav aria-label="Navegación principal">
