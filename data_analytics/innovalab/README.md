@@ -17,8 +17,10 @@ Pipeline reproducible para **integrar, limpiar, validar y publicar** datos de ha
 | Índice de oportunidad | **1.121 filas · 15 comunas · 80 rubros** |
 | Fórmula del índice | **`1.0.0`** · pesos 40/40/20 · `anio_ref=2025` |
 | Reglas de compatibilidad | **`1.0.0`** · 12 reglas versionadas |
+| Catálogo TECBA | **13 requisitos únicos · 9 URLs oficiales vigentes** |
+| Matriz rubro ↔ requisito | **5.690 reglas · 882 rubros · 176 condicionales** |
 | Fixture de demo | **`1.0.0`** · 150 habilitaciones · 30 SMP · 30 fichas EPOK |
-| Pruebas | **120** |
+| Pruebas | **134** |
 
 Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json), [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json) y [`data/processed/epok_cobertura.json`](data/processed/epok_cobertura.json).
 
@@ -113,7 +115,7 @@ data_analytics/innovalab/
 │   └── geo/                    # callejero.csv, comunas.geojson, manzanas_catastrales.csv
 ├── db/
 │   ├── schema.sql              # Tablas, índices y vistas
-│   ├── seed/                   # Requisitos de rubros y reglas de compatibilidad
+│   ├── seed/                   # Requisitos de rubros, catálogo TECBA, matriz y reglas de compatibilidad
 │   ├── demo/                   # Fixture 1.0.0 sanitizado (Git normal, sin LFS)
 │   │   ├── habilitaciones_demo.csv
 │   │   ├── epok_fichas_demo.csv
@@ -123,11 +125,13 @@ data_analytics/innovalab/
 │   └── innovalab_dump.sql      # Dump de referencia (Git LFS)
 ├── scripts/
 │   ├── generar_demo.py         # Genera el fixture de forma determinista
+│   ├── generar_dim_requisitos.py       # CSV maestro del catálogo TECBA
+│   ├── generar_fact_reglas_habilitacion.py  # Matriz rubro ↔ requisito
 │   └── restore_dump.sh         # Restore del dump con filtros por versión
 ├── docker-compose.yml          # PostgreSQL 18 + esquema + fixture
 ├── docs/                       # Fórmula del índice, urbanismo y datos de demo
 ├── notebook/                   # Exploración, modelos, clustering y CU
-└── tests/                      # 120 pruebas
+└── tests/                      # 134 pruebas
 ```
 
 Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. El fixture de `db/demo/` es la excepción: son pocos KB y se versiona en Git normal para que la demo funcione sin LFS. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
@@ -138,7 +142,7 @@ Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. 
 
 1. **Build** — carga los CSV crudos, normaliza y deduplica, asigna comuna y reconstruye el Código Urbanístico limpio.
 2. **Validate** — aplica el contrato de calidad al padrón y al CU. Cada CSV se reemplaza de forma atómica solo después de superar las validaciones.
-3. **Load** — ejecuta `src/export_postgres.py --all`: requisitos, habilitaciones, Código Urbanístico, panel urbanístico e índice de oportunidad.
+3. **Load** — ejecuta `src/export_postgres.py --all`: catálogo de requisitos, matriz rubro ↔ requisito, checklist de rubros, habilitaciones, Código Urbanístico, panel urbanístico e índice de oportunidad.
 
 | Comando | Construye | Valida | Escribe artefactos | Escribe en PostgreSQL |
 |---|---:|---:|---:|---:|
@@ -149,6 +153,8 @@ Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. 
 ### Cargas selectivas
 
 ```bash
+python src/export_postgres.py --catalogo          # primero: la matriz tiene FK a dim_requisitos
+python src/export_postgres.py --matriz-requisitos
 python src/export_postgres.py --rubros
 python src/export_postgres.py --habilitaciones
 python src/export_postgres.py --codigo-urbanistico
@@ -335,6 +341,7 @@ python -m src.run_pipeline
 | `urbanismo_cobertura_actual` | Vista de la última corrida urbanística |
 | `urbanismo_habilitaciones` | Vista por habilitación con estado, motivo y perfil EPOK |
 | `indice_oportunidad_actual` | Vista de la última corrida del índice |
+| `requisitos_por_smp` | Vista de requisitos aplicables por SMP (rubro + CU + panel urbanístico) |
 
 Consultas de ejemplo:
 
@@ -511,7 +518,7 @@ Resultados exploratorios: en el notebook 02 la clasificación de comuna alcanza 
 python -m pytest tests/ -v
 ```
 
-La suite cubre contratos de datos, estadística, oportunidad, urbanismo y clientes de APIs. Ejecútala desde `data_analytics/innovalab`. Las pruebas de contrato de `tests/test_data.py` validan `data/processed/habilitaciones_caba_clean.csv`: si el archivo no existe, se omiten; una suite sin omisiones requiere el CSV disponible localmente.
+La suite cubre contratos de datos, estadística, oportunidad, urbanismo, clientes de APIs, catálogo de requisitos y matriz rubro ↔ requisito. Ejecútala desde `data_analytics/innovalab`. Las pruebas de contrato de `tests/test_data.py` validan `data/processed/habilitaciones_caba_clean.csv`: si el archivo no existe, se omiten; una suite sin omisiones requiere el CSV disponible localmente.
 
 ## Limitaciones
 
@@ -538,5 +545,7 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo y client
 - [`docs/urbanismo_compatibilidad.md`](docs/urbanismo_compatibilidad.md) — reglas, estados, panel, cobertura y versionado.
 - [`docs/indice_oportunidad_formula.md`](docs/indice_oportunidad_formula.md) — fórmula, artefacto, backtest y changelog.
 - [`docs/epok_enriquecimiento.md`](docs/epok_enriquecimiento.md) — modelo de datos, refresh incremental, dashboard, alertas y migración.
-- [`db/schema.sql`](db/schema.sql) — esquema completo.
+- [`db/schema.sql`](db/schema.sql) — esquema completo (incluye `dim_requisitos`, `fact_reglas_habilitacion` y `requisitos_por_smp`).
+- [`db/seed/dim_requisitos.csv`](db/seed/dim_requisitos.csv) — catálogo maestro de 13 requisitos.
+- [`db/seed/fact_reglas_habilitacion.csv`](db/seed/fact_reglas_habilitacion.csv) — matriz de 5.690 reglas.
 - [`db/seed/reglas_compatibilidad_urbanistica.json`](db/seed/reglas_compatibilidad_urbanistica.json) — reglas `1.0.0`.
