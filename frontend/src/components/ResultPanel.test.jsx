@@ -1,9 +1,32 @@
-import { render, screen } from '@testing-library/react';
-import { describe, test, expect } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ResultPanel } from './ResultPanel';
 
-describe('Pruebas de ResultPanel con Datos Simulados (Mocking)', () => {
-  
+describe('Pruebas de ResultPanel con Datos Simulados y Mock de API USIG', () => {
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              comuna: 'Comuna 1',
+              barrio: 'San Nicolás',
+              seccion: '005',
+              manzana: '042',
+              parcela: '012A',
+            }),
+        })
+      )
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('1. Muestra el mensaje de bienvenida cuando aún no hay datos (data es null)', () => {
     render(<ResultPanel data={null} />);
 
@@ -11,8 +34,7 @@ describe('Pruebas de ResultPanel con Datos Simulados (Mocking)', () => {
     expect(screen.getByText(/Ingresá una actividad y una dirección/i)).toBeTruthy();
   });
 
-  test('2. Renderiza correctamente una respuesta completa simulada del backend', () => {
-    // Simulamos el JSON real que devolvería la API del SGI TECBA
+  test('2. Renderiza correctamente una respuesta completa simulada del backend y enriquece con USIG', async () => {
     const mockRespuestaExitosa = {
       ubicacion: {
         direccion_normalizada: 'AV. CORRIENTES 1234',
@@ -33,16 +55,18 @@ describe('Pruebas de ResultPanel con Datos Simulados (Mocking)', () => {
 
     render(<ResultPanel data={mockRespuestaExitosa} />);
 
-    // Verificamos que todos los datos simulados se dibujen bien
     expect(screen.getByText('AV. CORRIENTES 1234')).toBeTruthy();
     expect(screen.getByText('Datos consultados')).toBeTruthy();
-    expect(screen.getByText('Comuna 1')).toBeTruthy();
     expect(screen.getByText(/Catastro · Confianza Alta/i)).toBeTruthy();
-    expect(screen.getByText('150 m²')).toBeTruthy();
+    expect(screen.getByText(/150 m² · SMP 005-042-012A/i)).toBeTruthy();
     expect(screen.getByText('Cafetería y Bar')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Comuna 1 · San Nicolás/i)).toBeTruthy();
+    });
   });
 
-  test('3. Muestra alerta amarilla y cambia estado cuando el backend pide más información', () => {
+  test('3. Muestra alerta amarilla y cambia estado cuando el backend pide más información', async () => {
     const mockRespuestaIncompleta = {
       ubicacion: { direccion_original: 'Calle Falsa 123' },
       mensaje: 'No se encontró la parcela exacta. Por favor verificá la altura.',
@@ -55,24 +79,23 @@ describe('Pruebas de ResultPanel con Datos Simulados (Mocking)', () => {
     expect(screen.getByText(/No se encontró la parcela exacta/i)).toBeTruthy();
   });
 
-  test('4. Calcula y muestra correctamente las métricas de cobertura del padrón', () => {
-    const mockConCobertura = {
-      ubicacion: { direccion_normalizada: 'AV. SANTA FE 3200' },
-      cobertura_datos: {
-        total_registros: 1200,
-        campos: {
-          comuna: { cobertura: 0.95, expectativa_minima: 0.90, cumple_expectativa: true },
-          smp: { cobertura: 0.70, expectativa_minima: 0.85, cumple_expectativa: false },
-        },
+  test('4. Maneja correctamente si la API externa de USIG falla o no devuelve datos', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('Error de red USIG')))
+    );
+
+    const mockSinUsig = {
+      ubicacion: {
+        direccion_normalizada: 'AV. SANTA FE 3200',
+        comuna: 14,
       },
     };
 
-    render(<ResultPanel data={mockConCobertura} />);
+    render(<ResultPanel data={mockSinUsig} />);
 
-    expect(screen.getByText('Cobertura del padrón')).toBeTruthy();
-    expect(screen.getByText('95.0%')).toBeTruthy();
-    expect(screen.getByText(/Cumple de la expectativa de 90%/i)).toBeTruthy();
-    expect(screen.getByText('70.0%')).toBeTruthy();
-    expect(screen.getByText(/Debajo de la expectativa de 85%/i)).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Comuna 14')).toBeTruthy();
+    });
   });
 });
