@@ -20,7 +20,7 @@ Pipeline reproducible para **integrar, limpiar, validar y publicar** datos de ha
 | Catálogo TECBA | **13 requisitos únicos · 9 URLs oficiales vigentes** |
 | Matriz rubro ↔ requisito | **5.690 reglas · 882 rubros · 176 condicionales** |
 | Fixture de demo | **`1.0.0`** · 150 habilitaciones · 30 SMP · 30 fichas EPOK |
-| Pruebas | **134** |
+| Pruebas | **137** |
 
 Detalle de la última corrida: [`data/processed/urbanismo_cobertura.json`](data/processed/urbanismo_cobertura.json), [`data/processed/indice_oportunidad_meta.json`](data/processed/indice_oportunidad_meta.json) y [`data/processed/epok_cobertura.json`](data/processed/epok_cobertura.json).
 
@@ -131,7 +131,7 @@ data_analytics/innovalab/
 ├── docker-compose.yml          # PostgreSQL 18 + esquema + fixture
 ├── docs/                       # Fórmula del índice, urbanismo y datos de demo
 ├── notebook/                   # Exploración, modelos, clustering y CU
-└── tests/                      # 134 pruebas
+└── tests/                      # 137 pruebas
 ```
 
 Los archivos de `data/` y `db/innovalab_dump.sql` se versionan con **Git LFS**. Instala Git LFS antes de clonar o ejecuta `git lfs pull` después. El fixture de `db/demo/` es la excepción: son pocos KB y se versiona en Git normal para que la demo funcione sin LFS. Los artefactos derivados de índices y urbanismo se regeneran con los comandos de este README y no se versionan.
@@ -329,7 +329,7 @@ python -m src.run_pipeline
 |---|---|
 | `habilitaciones` | Una fila por registro del padrón |
 | `rubros_requisitos` | Checklist curado por rubro, etapa y trámite |
-| `dim_requisitos` | Una fila por trámite único de CABA (requiere el esquema del catálogo) |
+| `dim_requisitos` | Una fila por trámite único de CABA (13 requisitos) |
 | `fact_reglas_habilitacion` | Una fila por rubro × requisito aplicable (5.690 reglas) |
 | `epok_fichas` | Una ficha catastral por SMP, con estado, intentos, último error y fechas de actualización |
 | `codigo_urbanistico` | Una fila por parcela: JSONB completo + columnas aplanadas |
@@ -398,9 +398,11 @@ python src/export_postgres.py --catalogo            # UPSERT en dim_requisitos
 
 Las 9 gestiones externas tienen URL oficial vigente (verificada el
 2026-11-19); los 4 requisitos `checklist` tienen `url_oficial` vacía porque se
-resuelven con gestión privada o matriculada. La tabla `dim_requisitos` y la
-vista `requisitos_por_smp` las crea el esquema del catálogo (PR #51); hasta que
-ese cambio esté en `main`, el loader se usa solo con `--dry-run`.
+resuelven con gestión privada o matriculada. La tabla `dim_requisitos`, la
+matriz `fact_reglas_habilitacion` y la vista `requisitos_por_smp` ya están
+incluidas en [`db/schema.sql`](db/schema.sql) de `main`, al igual que los
+loaders `--catalogo` y `--matriz-requisitos`. El flag `--dry-run` sigue
+disponible para validar la carga sin escribir en la base.
 
 ### Matriz rubro ↔ requisito
 
@@ -483,11 +485,11 @@ El job levanta su **propia base efímera** (`postgres:18` como service container
 | Paso | Qué hace |
 |---|---|
 | Esquema | Aplica `db/schema.sql` con `psql -v ON_ERROR_STOP=1`. |
-| Pruebas | Corre `pytest` (120 pruebas). |
+| Pruebas | Corre `pytest` (137 pruebas). |
 | Pipeline | Ejecuta `python -m src.run_pipeline` contra el `DATABASE_URL` local del job. |
 | Verificación | Exige conteos mayores a cero en `habilitaciones`, `codigo_urbanistico` y `urbanismo_smp`. |
 
-Última corrida verificada (2026-11-03, commit `520d317`): **120 pruebas en verde**, **216.991 habilitaciones**, **318.126 parcelas del CU** y **335.569 SMP** en el panel urbanístico. El job no consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
+Última corrida verificada (2026-11-20, run #9 sobre `a15f554`): **137 pruebas en verde**, **216.991 habilitaciones**, **318.126 parcelas del CU** y **335.569 SMP** en el panel urbanístico. El job no consulta si el GCBA publicó una versión nueva: procesa los archivos versionados en Git (incluidos los de LFS).
 
 El enriquecimiento EPOK **no** forma parte del workflow semanal: depende de la API del GCBA y puede tardar. Se ejecuta aparte con `python src/enriquecer_epok.py` y deja el dashboard y las alertas en `data/processed/`.
 
