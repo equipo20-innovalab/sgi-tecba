@@ -479,3 +479,87 @@ CREATE OR REPLACE VIEW indice_oportunidad_actual AS
 SELECT i.*
 FROM indice_oportunidad AS i
 WHERE i.calculo_id = (SELECT max(calculo_id) FROM indice_oportunidad_meta);
+
+-- ============================================================================
+-- Catálogo maestro de requisitos y trámites (TECBA)
+-- ============================================================================
+-- `codigo_urbanistico_limpio` no tiene una columna `codigo_rubro`: su clave es
+-- el SMP y representa la parcela, no el rubro comercial. El rubro vive en
+-- `habilitaciones.codigo_rubro` (NUMERIC). Por eso la matriz rubro ↔ requisito
+-- referencia a ese código y la vinculación con el Código Urbanístico se hace
+-- por SMP en la vista `requisitos_por_smp`, al final de este bloque.
+
+CREATE TABLE IF NOT EXISTS dim_requisitos (
+    requisito_id            VARCHAR(20) PRIMARY KEY,
+    titulo                  VARCHAR(255) NOT NULL,
+    etapa                   VARCHAR(50) NOT NULL,
+    tag_familia             VARCHAR(50) NOT NULL,
+    documentacion_necesaria TEXT NOT NULL,
+    pasos_a_seguir          TEXT NOT NULL,
+    url_oficial             TEXT,
+    tipo_accion             VARCHAR(20) NOT NULL,
+    organismo_emisor        VARCHAR(100) NOT NULL,
+    fuente_normativa        VARCHAR(150) NOT NULL,
+    fecha_actualizacion     DATE DEFAULT DATE '2026-11-01',
+    CONSTRAINT ck_dim_requisitos_tipo_accion
+        CHECK (tipo_accion IN ('externo', 'checklist'))
+);
+
+COMMENT ON TABLE dim_requisitos IS
+    'Catálogo maestro de requisitos y trámites únicos de CABA (fuente de verdad: seed versionado).';
+COMMENT ON COLUMN dim_requisitos.url_oficial IS
+    'Enlace directo al organismo emisor; NULL si la gestión es privada o física (tipo_accion=checklist).';
+
+CREATE TABLE IF NOT EXISTS fact_reglas_habilitacion (
+    regla_id                 SERIAL PRIMARY KEY,
+    codigo_rubro             NUMERIC NOT NULL,
+    requisito_id             VARCHAR(20) NOT NULL
+        REFERENCES dim_requisitos (requisito_id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    obligatoriedad           VARCHAR(20) NOT NULL,
+    condicion_superficie_min NUMERIC DEFAULT 0,
+    condicion_tipo_tramite   VARCHAR(50),
+    nota_condicion           TEXT,
+    CONSTRAINT uq_fact_reglas_rubro_requisito UNIQUE (codigo_rubro, requisito_id),
+    CONSTRAINT ck_fact_reglas_obligatoriedad
+        CHECK (obligatoriedad IN ('obligatorio', 'condicional', 'opcional')),
+    CONSTRAINT ck_fact_reglas_superficie_min
+        CHECK (condicion_superficie_min >= 0)
+);
+
+COMMENT ON COLUMN fact_reglas_habilitacion.codigo_rubro IS
+    'Referencia lógica a habilitaciones.codigo_rubro (NUMERIC). No es FK porque esa columna no es única; la parcela se vincula por SMP.';
+
+CREATE INDEX IF NOT EXISTS idx_fact_reglas_codigo_rubro
+    ON fact_reglas_habilitacion (codigo_rubro);
+CREATE INDEX IF NOT EXISTS idx_fact_reglas_requisito
+    ON fact_reglas_habilitacion (requisito_id);
+
+-- Conexión entre rubro, requisitos, trazabilidad y la parcela urbanística.
+CREATE OR REPLACE VIEW requisitos_por_smp AS
+SELECT
+    h.smp,
+    h.codigo_rubro,
+    h.descripcion_rubro,
+    r.requisito_id,
+    r.titulo,
+    r.etapa,
+    r.tag_familia,
+    f.obligatoriedad,
+    f.condicion_superficie_min,
+    f.condicion_tipo_tramite,
+    f.nota_condicion,
+    r.url_oficial,
+    r.tipo_accion,
+    r.organismo_emisor,
+    r.fuente_normativa,
+    r.fecha_actualizacion,
+    cu.smp AS smp_en_codigo_urbanistico,
+    us.estado_compatibilidad
+FROM habilitaciones AS h
+JOIN fact_reglas_habilitacion AS f ON f.codigo_rubro = h.codigo_rubro
+JOIN dim_requisitos AS r ON r.requisito_id = f.requisito_id
+LEFT JOIN codigo_urbanistico AS cu ON cu.smp = h.smp
+LEFT JOIN urbanismo_smp AS us ON us.smp = h.smp;
+
+COMMENT ON VIEW requisitos_por_smp IS
+    'Requisitos aplicables por SMP: cruza habilitaciones con el catálogo y con el Código Urbanístico / panel urbanístico.';

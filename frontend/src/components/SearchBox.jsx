@@ -243,6 +243,27 @@ export const SearchBox = ({ onSearch, isLoading = false }) => {
         setMensajeVoz('Dictado detenido. Revisá los campos y tocá Buscar cuando quieras.');
     };
 
+    /**
+     * Limpia el texto de la caja de búsqueda y devuelve el foco al input.
+     */
+    const handleClear = () => {
+        setQuery('');
+        inputRef.current?.focus();
+    };
+
+    /**
+     * Detecta eventos de teclado en el input (ej. tecla Escape para limpiar).
+     */
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            setQuery('');
+            inputRef.current?.blur(); // Quita el foco opcionalmente al presionar Escape
+        }
+    };
+
+    /**
+     * Simulación de búsqueda por voz (futura integración).
+     */
     const handleVoiceSearch = () => {
         if (estadoVoz !== 'inactivo') {
             detenerDictado();
