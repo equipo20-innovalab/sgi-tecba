@@ -146,3 +146,94 @@ code {
     background: rgba(255, 255, 255, 0.1) !important;
     border-radius: 6px;
 }
+
+/* La ficha se fija arriba a la derecha del mapa: sigue siendo un Popup de
+   MapLibre, pero no se sale del contenedor aunque el mapa sea chico. */
+.maplibregl-popup.visor-popup-ctl {
+    top: 12px !important;
+    right: 12px !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    max-width: none !important;
+    max-height: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+}
+
+.maplibregl-popup.visor-popup-ctl .maplibregl-popup-tip {
+    display: none !important;
+}
+
+.maplibregl-popup.visor-popup-ctl .maplibregl-popup-content {
+    width: 260px;
+    max-width: 260px !important;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: none !important;
+    padding: 8px 12px;
+    scrollbar-width: thin;
+}
+
+/* Contenido del popup del visor Ciudad 3D */
+.visor-popup {
+    color: #f8fafc;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.visor-popup__titulo {
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 2px;
+    padding-right: 14px;
+}
+
+.visor-popup__bajada {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.65;
+    margin-bottom: 4px;
+}
+
+.visor-popup__fila {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 2px;
+    margin-top: 2px;
+}
+
+.visor-popup__etiqueta {
+    opacity: 0.75;
+}
+
+.visor-popup__valor {
+    text-align: right;
+    font-weight: 600;
+}
+
+.visor-popup__aviso {
+    margin-top: 8px;
+    opacity: 0.8;
+}
+
+.visor-popup__enlace {
+    display: block;
+    margin-top: 6px;
+    color: #93c5fd;
+    text-decoration: underline;
+}
+
+.visor-popup__enlace--plano {
+    margin-top: 3px;
+    font-size: 11px;
+}
+
+.visor-popup__enlace--principal {
+    margin-top: 8px;
+    font-weight: 600;
+}

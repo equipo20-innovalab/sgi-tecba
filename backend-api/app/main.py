@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     health,
     mapa,
     rubros,
+    voz,
 )
 
 app = FastAPI(
@@ -36,6 +37,7 @@ app.include_router(catastro.router, prefix=settings.API_V1_STR, tags=["catastro"
 app.include_router(consulta.router, prefix=settings.API_V1_STR, tags=["consulta"])
 app.include_router(mapa.router, prefix=settings.API_V1_STR, tags=["mapa"])
 app.include_router(chat.router, prefix=settings.API_V1_STR, tags=["chat"])
+app.include_router(voz.router, prefix=settings.API_V1_STR, tags=["voz"])
 
 @app.get("/")
 def root():

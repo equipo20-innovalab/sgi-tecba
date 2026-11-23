@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
+    # Dictado por voz (respaldo local con faster-whisper)
+    VOZ_MODELO: str = "base"
+    VOZ_IDIOMA: str = "es"
+
     # Directorio de datos locales usado por las rutas del mapa.
     INNOVALAB_DATA_DIR: Path | None = None
     

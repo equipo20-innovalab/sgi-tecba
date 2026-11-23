@@ -22,7 +22,12 @@ export default function ConfirmacionView({
         <div className="lg:col-span-5 flex flex-col gap-6">
           
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-            <h3 className="font-bold text-slate-800 text-base mb-1">Ubicación</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-slate-800 text-base mb-1">Ubicación</h3>
+              <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                Ciudad 3D · GCBA
+              </span>
+            </div>
             <p className="text-sm text-slate-600 mb-3">
               {direccionBusqueda ? direccionBusqueda : "Calle Corrientes 2500"}
             </p>
