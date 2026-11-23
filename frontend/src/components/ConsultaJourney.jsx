@@ -26,7 +26,8 @@ const VISTAS = {
  * 
  * @param {Object} props - Propiedades del componente.
  * @param {Object|null} props.data - Datos de la ubicación y resultados devueltos por la API.
- * @param {string} props.direccionBusqueda - Texto de la dirección ingresada en el buscador.
+ * @param {string} props.direccionBusqueda - Texto del lugar ingresado en el buscador.
+ * @param {string} props.rubroBusqueda - Rubro seleccionado en el buscador.
  * @param {string} props.error - Mensaje de error en caso de fallo en la petición HTTP.
  * @param {boolean} props.isLoading - Indicador de estado de carga activo.
  * @param {Function} props.onSearch - Función callback para disparar la consulta al backend.
@@ -35,6 +36,7 @@ const VISTAS = {
 export function ConsultaJourney({
     data,
     direccionBusqueda,
+    rubroBusqueda,
     error,
     isLoading,
     onSearch,
@@ -49,11 +51,11 @@ export function ConsultaJourney({
 
     /**
      * Manejador para reiniciar la vista a resultados al realizar una nueva búsqueda.
-     * @param {string} queryText - Texto de búsqueda ingresado.
+     * @param {{rubro: string, direccion: string}} consulta - Campos del buscador.
      */
-    const handleSearch = (queryText) => {
+    const handleSearch = (consulta) => {
         setVista(VISTAS.RESULTADO);
-        onSearch(queryText);
+        onSearch(consulta);
     };
 
     return (
@@ -66,6 +68,7 @@ export function ConsultaJourney({
                 <>
                     <TramitesView
                         direccionBusqueda={direccionConfirmacion}
+                        rubroInicial={rubroBusqueda || data?.actividad_detectada}
                         ubicacion={data?.ubicacion}
                         data={data}
                         onBackToConfirmacion={() => setVista(VISTAS.RESULTADO)}
@@ -95,7 +98,7 @@ export function ConsultaJourney({
                                     <span>📍</span> Visor Geográfico Urbano
                                 </h3>
                                 <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                                    Satélite Esri · MapLibre
+                                    Ciudad 3D · GCBA
                                 </span>
                             </div>
                             <div className="w-full h-[450px]">

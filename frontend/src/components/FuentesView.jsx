@@ -84,7 +84,10 @@ export default function FuentesView() {
                     Transparencia
                 </span>
                 <h1 className="mt-1 text-3xl sm:text-4xl font-bold text-gcba-dark">Fuentes y metodología</h1>
-                <p className="mt-3 max-w-3xl text-sm sm:text-base text-slate-600">
+                <p
+                    className="mt-3 max-w-3xl text-base sm:text-lg font-semibold text-gcba-dark"
+                    style={{ textShadow: '0 0 16px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,1)' }}
+                >
                     De dónde salen los datos, cómo se combinan y qué límites tiene la información que
                     muestra el sistema.
                 </p>
@@ -114,13 +117,6 @@ export default function FuentesView() {
                             </div>
                         ))}
                     </div>
-                )}
-
-                {salud && tablas.codigo_urbanistico === 0 && (
-                    <p className="mt-3 text-xs text-slate-500">
-                        El Código Urbanístico figura en 0 porque la versión de la base usada para esta demo
-                        es anterior a su integración. El resto de los módulos no depende de esa tabla.
-                    </p>
                 )}
             </section>
 

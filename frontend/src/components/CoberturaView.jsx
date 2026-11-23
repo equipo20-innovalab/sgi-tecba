@@ -119,7 +119,10 @@ export default function CoberturaView() {
                     Calidad de datos
                 </span>
                 <h1 className="mt-1 text-3xl sm:text-4xl font-bold text-gcba-dark">Cobertura del padrón</h1>
-                <p className="mt-3 max-w-3xl text-sm sm:text-base text-slate-600">
+                <p
+                    className="mt-3 max-w-3xl text-base sm:text-lg font-semibold text-gcba-dark"
+                    style={{ textShadow: '0 0 16px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,1)' }}
+                >
                     Porcentaje de registros con dato por campo y comparación con las expectativas mínimas
                     definidas para el padrón de habilitaciones.
                 </p>

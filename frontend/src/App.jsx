@@ -41,6 +41,8 @@ export default function App() {
 
     const [searchQuery, setSearchQuery] = useState('');
 
+    const [rubroBusqueda, setRubroBusqueda] = useState('');
+
     const [error, setError] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -68,11 +70,13 @@ export default function App() {
     }, []);
 
 
-    const handleSearch = async (queryText) => {
+    const handleSearch = async ({ rubro, direccion }) => {
 
         setIsLoading(true);
 
-        setSearchQuery(queryText); 
+        setRubroBusqueda(rubro);
+
+        setSearchQuery(direccion);
 
         setError('');
 
@@ -82,7 +86,7 @@ export default function App() {
 
         try {
 
-            setSearchResult(await consultarProyecto(queryText));
+            setSearchResult(await consultarProyecto({ rubro, direccion }));
 
         } catch (requestError) {
 
@@ -107,7 +111,20 @@ export default function App() {
 
     return (
 
-        <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900">
+        <div
+            className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900"
+            style={{
+                backgroundImage:
+                    'linear-gradient(180deg, rgba(214, 228, 246, 0.35) 0%, rgba(214, 228, 246, 0.45) 50%, rgba(214, 228, 246, 0.62) 100%), url(/ba3d.webp)',
+                // En esta imagen los techos están al ~24% de la altura. Se
+                // corre el fondo hacia arriba para que el obelisco asome por
+                // encima del mapa urbano y quede visible en la zona del título.
+                backgroundSize: 'auto 130%',
+                backgroundPosition: 'center calc(175px - 42vh)',
+                backgroundAttachment: 'fixed',
+                backgroundRepeat: 'no-repeat',
+            }}
+        >
 
             <Navbar currentPath={path} />
 
@@ -123,6 +140,8 @@ export default function App() {
                         data={searchResult}
 
                         direccionBusqueda={searchQuery}
+
+                        rubroBusqueda={rubroBusqueda}
 
                         error={error}
 

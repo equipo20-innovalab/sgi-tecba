@@ -3,6 +3,7 @@ import AsistenteSGI from './AsistenteSGI';
 
 export default function TramitesView({
   direccionBusqueda,
+  rubroInicial,
   ubicacion,
   data,
   onBackToConfirmacion,
@@ -12,7 +13,7 @@ export default function TramitesView({
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, []);
 
-  const [rubro, setRubro] = useState('Cafetería');
+  const [rubro, setRubro] = useState(rubroInicial || 'Cafetería');
   const direccion = direccionBusqueda || ubicacion?.direccion_normalizada || ubicacion?.direccion_original || 'Calle Corrientes 2500';
 
   const requisitosBackend = data?.requisitos || [];
@@ -76,9 +77,11 @@ export default function TramitesView({
               onChange={(event) => setRubro(event.target.value)}
               className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-700 outline-none"
             >
-              <option>Cafetería</option>
-              <option>Gastronomía general</option>
-              <option>Comercio minorista</option>
+              {[rubroInicial, 'Cafetería', 'Gastronomía general', 'Comercio minorista']
+                .filter((opcion, indice, opciones) => opcion && opciones.indexOf(opcion) === indice)
+                .map((opcion) => (
+                  <option key={opcion}>{opcion}</option>
+                ))}
             </select>
           </div>
 

@@ -8,4 +8,5 @@ Stack Tecnológico y Versiones
 - **Vite:** v8.3.0
 - **Tailwind CSS:** v3.4.19
 - **Obelisco V2 (@gcba/obelisco-v2):** v1.19.0
-- ~~**Leaflet:** v1.9.4~~ *(En desuso: Próximo a eliminarse para integrar el visor oficial Ciudad 3D)*
+- ~~**Leaflet:** v1.9.4~~ *(Retirado: reemplazado por MapLibre GL + capas oficiales Ciudad 3D)*
+- **MapLibre GL:** v6.16.0 — visor 3D con fuentes públicas del GCBA (USIG/EPOK): parcelas, Código Urbanístico, alturas, mixtura, incidencia/alícuota y volumen edificable por SMP.

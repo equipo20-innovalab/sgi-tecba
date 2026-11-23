@@ -50,7 +50,8 @@ backend-api/
 │   │   ├── catastro.py            # GET /catastro/{smp}
 │   │   ├── consulta.py            # POST /consulta
 │   │   ├── mapa.py                # GET /mapa/*
-│   │   └── chat.py                # POST /chat: endpoint conversacional
+│   │   ├── chat.py                # POST /chat: endpoint conversacional
+│   │   └── voz.py                 # POST /voz/transcribir: dictado local
 │   ├── core/
 │   │   ├── config.py              # Settings (lee .env)
 │   │   ├── database.py            # Engine + Session
@@ -61,6 +62,7 @@ backend-api/
 │       ├── chat_agent.py          # Agente LangChain/Groq y tools del chatbot
 │       ├── consulta_service.py    # Lógica de consulta integrada
 │       ├── extraccion_service.py  # Extracción de datos de consultas
+│       ├── voz_service.py         # faster-whisper local (modelo base)
 │       ├── fuentes_service.py     # Fuentes de información
 │       └── geocoding_service.py   # Geocodificación
 ├── run.sh                         # Inicio rápido para Git Bash en Windows
@@ -415,6 +417,31 @@ El endpoint responde `422` si el cuerpo no cumple el schema, `400` si la lista
 está vacía o el último mensaje no es del usuario, `503` si falta configurar
 `GROQ_API_KEY` o el proveedor no está disponible, y `500` ante un error interno.
 La clave de Groq se configura solo en el backend; no la incluyas en el frontend.
+
+### `voz` — Transcripción local del dictado
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/voz/transcribir` | Recibe audio (`multipart/form-data`, campo `archivo`) y devuelve `{"texto": "..."}` |
+
+Es el respaldo del botón “Voz” cuando el navegador no tiene Web Speech API.
+Usa `faster-whisper` con el modelo `base` en CPU (`VOZ_MODELO`, `VOZ_IDIOMA`),
+sin API key y sin enviar el audio a terceros. La primera llamada descarga el
+modelo desde HuggingFace (~140 MB) y las siguientes reutilizan el caché local.
+El audio se procesa en un hilo aparte para no bloquear el event loop y se
+elimina apenas termina. Límite: 10 MB por archivo.
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/voz/transcribir" \
+  -F "archivo=@dictado.webm;type=audio/webm"
+```
+
+Responde `400` si el archivo está vacío, `413` si supera el límite, `503` si
+faltan dependencias y `500` ante un error de decodificación/transcripción.
+
+> Nota de compatibilidad: `faster-whisper==1.2.1` necesita el parámetro
+> `metadata_errors` de PyAV, por eso `av` se fija en `15.1.0` (las versiones 19
+> lo quitaron y rompen la decodificación).
 
 ---
 

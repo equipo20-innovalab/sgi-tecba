@@ -142,7 +142,10 @@ export default function RubrosView() {
                     Catálogo de actividades
                 </span>
                 <h1 className="mt-1 text-3xl sm:text-4xl font-bold text-gcba-dark">Rubros y requisitos</h1>
-                <p className="mt-3 max-w-3xl text-sm sm:text-base text-slate-600">
+                <p
+                    className="mt-3 max-w-3xl text-base sm:text-lg font-semibold text-gcba-dark"
+                    style={{ textShadow: '0 0 16px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,1)' }}
+                >
                     Consultá qué documentación y trámites pide cada actividad. Los requisitos combinan las
                     reglas generales con las específicas del rubro seleccionado.
                 </p>

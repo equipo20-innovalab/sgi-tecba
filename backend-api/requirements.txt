@@ -45,3 +45,8 @@ tzdata==2026.5
 uvicorn==0.54.0
 watchfiles==1.3.0
 websockets==17.2
+# Dictado por voz (respaldo local): transcripción con modelo base en CPU
+faster-whisper==1.2.1
+python-multipart==0.0.34
+# faster-whisper 1.2.1 usa el parámetro `metadata_errors` de PyAV, ausente en av 19
+av==15.1.0
