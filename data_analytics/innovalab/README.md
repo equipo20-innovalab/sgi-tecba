@@ -551,3 +551,29 @@ La suite cubre contratos de datos, estadística, oportunidad, urbanismo, cliente
 - [`db/seed/dim_requisitos.csv`](db/seed/dim_requisitos.csv) — catálogo maestro de 13 requisitos.
 - [`db/seed/fact_reglas_habilitacion.csv`](db/seed/fact_reglas_habilitacion.csv) — matriz de 5.690 reglas.
 - [`db/seed/reglas_compatibilidad_urbanistica.json`](db/seed/reglas_compatibilidad_urbanistica.json) — reglas `1.0.0`.
+
+---
+
+## Cierre de Entrega — Módulo Data Analytics & Engineering (Sprint 6)
+
+### Fuentes Oficiales y Trazabilidad
+
+| Fuente | Organismo | Cobertura / Alcance | Fecha de Corte |
+| :--- | :--- | :--- | :--- |
+| Padrón de Habilitaciones Históricas | GCBA / BA Data | 216.991 registros históricos procesados | Noviembre 2026 |
+| Código Urbanístico y Cuadro de Usos | GCBA (Ley 6.099 / 6.564) | 318.126 parcelas (CU) y 882 rubros normalizados del padrón | Noviembre 2026 |
+| Capa Catastral y Fichas Parcelarias | IDECABA / EPOK | 335.569 SMP y 19.608 fichas catastrales | Noviembre 2026 |
+| Matriz Normativa de Trámites y Requisitos | AGC (Ley 6.101) / APRA / AGIP | 13 requisitos maestros y 5.690 reglas cruzadas | Noviembre 2026 |
+
+Los 882 códigos de rubro provienen del padrón de habilitaciones: `codigo_urbanistico_limpio.csv` es una tabla de parcelas por SMP y no contiene rubros. La cobertura del cruce entre ambas fuentes se informa con `--reporte-smp`.
+
+### Contrato de Integración para Backend / Frontend
+
+* **Tablas principales:** `urbanismo_smp` (panel urbanístico), `dim_requisitos`, `fact_reglas_habilitacion` e `indice_oportunidad`.
+* **Actualización de BD en producción:** Ejecutar `python -m src.run_pipeline` con la variable `DATABASE_URL` configurada, o restaurar el dump mediante `scripts/restore_dump.sh`.
+* **Entorno ligero de desarrollo/CI:** Levantar con `docker compose up -d` desde `data_analytics/innovalab` (carga el fixture sanitizado `db/demo/` sin requerir Git LFS).
+
+### Limitaciones Conocidas (Alcance Normativo)
+
+* Las parcelas ubicadas en **Áreas de Protección Histórica (APH)**, **Urbanizaciones Determinadas (U)** o sin código **SMP** estándar se marcan para verificación técnica presencial ante la DGROC/AGC.
+* Los resultados tienen carácter orientativo basado en normativa pública vigente y no reemplazan el acto administrativo de habilitación.
