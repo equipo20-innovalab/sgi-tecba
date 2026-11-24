@@ -13,7 +13,7 @@ Stack Tecnológico y Versiones
 
 --------------------------------------------------------------------------------
 
-# Innovalab — Capa de Data Analytics & Engineering (CABA)
+Innovalab — Capa de Data Analytics  (CABA)
 
 Pipeline reproducible en `data_analytics/innovalab` para **integrar, limpiar, validar y publicar** datos de habilitaciones comerciales de la Ciudad de Buenos Aires en PostgreSQL. Combina el padrón histórico del GCBA, geografía oficial, Código Urbanístico, fichas catastrales EPOK, matriz normativa multirrubro e índice de oportunidad comercial.
 
