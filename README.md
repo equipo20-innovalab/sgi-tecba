@@ -19,7 +19,7 @@ Pipeline reproducible en `data_analytics/innovalab` para **integrar, limpiar, va
 
 > **Alcance:** La capa de datos abastece al backend con información estructurada y trazable. Los resultados tienen carácter orientativo y no reemplazan el acto administrativo oficial.
 
-## Métricas y Estado Actual
+Métricas y Estado Actual
 
 | Indicador | Valor |
 | :--- | :--- |
@@ -32,14 +32,14 @@ Pipeline reproducible en `data_analytics/innovalab` para **integrar, limpiar, va
 | Índice de oportunidad (`v1.0.0`) | **1.121 combinaciones · 15 comunas · 80 rubros** (pesos 40/40/20) |
 | Calidad y CI/CD | **137 pruebas automatizadas (`pytest`)** + workflows semanales y de demo |
 
-## Arquitectura del Pipeline (`src/run_pipeline.py`)
+Arquitectura del Pipeline (`src/run_pipeline.py`)
 
 El flujo se ejecuta en tres etapas atómicas con validación de calidad (`src/data_validation.py`):
 1. **Build:** Normalización y deduplicación del padrón (2015–2026), geocodificación/asignación de comuna (`catastro`, `callejero`, `fuzzy`) y limpieza del Código Urbanístico.
 2. **Validate:** Controles automáticos de cobertura, tipos, nulidad y reglas de compatibilidad urbanística (`v1.0.0`, 12 reglas versionadas).
 3. **Load:** Exportación y carga `UPSERT` en PostgreSQL (`src/export_postgres.py`) hacia las tablas y vistas productivas (`habilitaciones`, `codigo_urbanistico`, `urbanismo_smp`, `dim_requisitos`, `fact_reglas_habilitacion`, `requisitos_por_smp` e `indice_oportunidad_actual`).
 
-## Inicio Rápido y Entorno de Demo
+Inicio Rápido y Entorno de Demo
 
 **Ejecución completa del pipeline:**
 ```bash
