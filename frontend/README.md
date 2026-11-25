@@ -22,10 +22,16 @@ Esta plataforma está diseñada para optimizar y gestionar la visualización geo
 
 Para construir este MVP (Producto Mínimo Viable), hemos seleccionado herramientas modernas y ligeras, ideales para un desarrollo ágil y sin fricciones de costos o licencias:
 
-- **React (v19):** Librería principal de JavaScript para construir interfaces de usuario interactivas basadas en componentes modulares.
-- **Vite (v8.3.3):** Nuestro empaquetador y servidor de desarrollo local. Lo preferimos por su velocidad extrema al compilar y actualizar cambios en tiempo real (*Hot Module Replacement*).
-- **Tailwind CSS:** Framework de estilos (*utility-first*) que nos permite diseñar interfaces limpias y adaptables rápidamente sin escribir CSS complejo desde cero.
-- **MapLibre GL + Satélite (Esri World Imagery):** MapLibre (fork open source de Mapbox GL) renderiza imágenes satelitales reales de Esri y edificios 3D extruidos. Se eligió por encima de Google Maps para evitar restricciones de tarjetas de crédito, costos por número de visitas y licencias comerciales.
+MapLibre GL + Ciudad 3D (GCBA): MapLibre (fork open source de Mapbox GL) renderiza el satélite oficial de USIG, edificios 3D de contexto de CARTO y las capas vectoriales públicas del visor Ciudad 3D: parcelas catastrales, Código Urbanístico y volumen edificable por SMP (las capas temáticas de alturas, mixtura, incidencia/alícuota y barrios permanecen ocultas; el mapa se muestra "Sin capa"). La ficha urbanística de la parcela se consulta en vivo a la API de EPOK y a USIG, y se combina con las habilitaciones/rubros del backend propio. Se eligió MapLibre por encima de Google Maps para evitar restricciones de tarjetas de crédito, costos por visitas y licencias comerciales.
+
+Fuentes oficiales integradas:
+
+- Teselas vectoriales: `https://vectortiles.usig.buenosaires.gob.ar/cur3d/{parcela|codigo_urbanistico|volumen_edif}/{z}/{x}/{y}.pbf?optimize=true`
+- Satélite USIG 2021 (esquema TMS): `https://servicios.usig.buenosaires.gob.ar/mapcache/tms/1.0.0/fotografias_aereas_2021_caba_3857@GoogleMapsCompatible/{z}/{x}/{y}.png`
+- Ficha de parcela: `https://epok.buenosaires.gob.ar/catastro/parcela/?smp=...` y endpoints `/cur3d/*` del mismo host (superficie edificada, unidades funcionales, pisos sobre/bajo rasantes, superficie de parcela y planos)
+- Barrio y Comuna: `https://ws.usig.buenosaires.gob.ar/datos_utiles?x=<lng>&y=<lat>` (usa el centroide devuelto por EPOK)
+- Visor oficial (enlace profundo): `https://ciudad3d.buenosaires.gob.ar/?smp=...`
+- Créditos: Gobierno de la Ciudad de Buenos Aires · USIG · EPOK · OpenStreetMap/CARTO · Esri (base alternativa)
 
 ---
 
@@ -96,7 +102,33 @@ La terminal te mostrará un enlace local (generalmente http://localhost:5173/). 
 
 1. Eliminación del Panel de Cobertura de Auditoría (ResultPanel.jsx)Se removió visualmente el bloque amarillo "Cobertura del padrón" de la interfaz principal de resultados, ya que correspondía a métricas de auditoría interna de la base de datos que resultaban confusas para el ciudadano común. El contrato JSON del backend se mantuvo intacto para no romper tests unitarios ni la navegación de soporte.
 
-2. Integración de Datos Útiles USIG en VivoEl panel de resultados (ResultPanel.jsx) ahora procesa y muestra de manera estructurada los datos catastrales y territoriales obtenidos en tiempo real desde las APIs públicas de la Ciudad (USIG Datos Útiles):Comuna y BarrioSección, Manzana y Parcela (y Clave Catastral SMP)Superficie Catastral en $\text{m}^2$Código Postal, Área Hospitalaria, Comisaría Vecinal y Distrito Escolar
+El buscador tiene dos campos en línea: **rubro** (lista obtenida de
+`GET /api/v1/rubros`) y **lugar** (texto libre), y envía ambos a
+`POST /api/v1/consulta` en modo
+estructurado (`{ "rubro": "...", "direccion": "..." }`). En desarrollo, Vite
+reenvía las solicitudes `/api` a `http://127.0.0.1:8000`.
+La API relaciona las direcciones exactas del padrón de habilitaciones con su
+SMP, ficha EPOK, historial completo de habilitaciones y atributos del Código
+Urbanístico (cuando se cargue el CSV). El mapa usa el `smp` devuelto para
+resaltar la parcela oficial y consultar en vivo su ficha urbanística en EPOK;
+además llama a `GET /api/v1/mapa/parcelas` para mostrar habilitaciones y rubros
+locales en el mismo popup. El mapa se muestra por defecto **Sin capa**: las
+capas temáticas siguen definidas en el estilo pero no se dibujan.
+
+El botón **Voz** llena esos dos campos con `Web Speech API` (`es-AR`). Un parser
+local (`src/services/voz.js`) separa rubro y lugar usando el catálogo de
+`/rubros` y sinónimos en español; el dictado nunca dispara la consulta solo:
+siempre podés revisar y corregir antes de apretar **Buscar**. Si el navegador no
+reconoce voz (o falla el permiso/servicio), se graba con `MediaRecorder` y se
+envía a `POST /api/v1/voz/transcribir`, donde `faster-whisper` transcribe en
+local con el modelo `base`. Se necesita `localhost` o HTTPS y permiso de
+micrófono; Chrome/Edge tienen el mejor soporte.
+
+Antes de iniciar el frontend, configura y arranca `backend-api` siguiendo su
+[guía de puesta en marcha](../backend-api/README.md), incluida la base
+PostgreSQL/PostGIS y la carga de datos del pipeline de Data Analytics. Si la API
+no está disponible o la base no tiene datos, la interfaz muestra el error y no
+reemplaza la respuesta por resultados simulados.
 
 3. Validación de Coordenadas y Prevención del "Bug del Agua" (MapView.jsx)Se solucionó un error crítico donde, al recibir coordenadas nulas o vacías, la conversión en JavaScript evaluaba a 0, desplazando la cámara del mapa hacia las coordenadas [0, 0] (Null Island / Río de la Plata).Se incorporó una validación estricta de Bounding Box en el visor geográfico para garantizar que el mapa se posicione y renderice únicamente dentro de los límites terrestres de CABA.
 

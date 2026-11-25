@@ -14,10 +14,12 @@ const SECCIONES = [
 ];
 
 const estiloEnlace = (activo) => ({
-    padding: '0.5rem 1rem',
+    padding: '0.5rem 0.9rem',
     fontWeight: 600,
-    color: activo ? '#1d3557' : '#2c3e50',
-    borderBottom: activo ? '2px solid #1d3557' : '2px solid transparent',
+    fontSize: '15px',
+    color: activo ? '#0b2033' : '#1e3a4c',
+    backgroundColor: 'transparent',
+    borderBottom: activo ? '3px solid #ffc600' : '3px solid transparent',
     textDecoration: 'none',
     borderRadius: 0,
 });
@@ -27,7 +29,27 @@ export const Navbar = ({ currentPath = '/' }) => {
     const esInicio = currentPath === '/';
 
     return (
-        <header className="o-header navbar bg-white" style={{ borderBottom: '6px solid #F6C243' }} role="banner">
+        <header
+            className="o-header navbar sgi-nav-transparente"
+            style={{ padding: '14px 16px', borderBottom: 'none' }}
+            role="banner"
+        >
+            <style>{`
+                header.sgi-nav-transparente {
+                    background-color: transparent !important;
+                    background-image: none !important;
+                    box-shadow: none !important;
+                }
+                .sgi-nav-links .nav-link:hover,
+                .sgi-nav-links .nav-link:focus,
+                .sgi-nav-links .nav-link:focus-visible,
+                .sgi-nav-links .nav-link:active {
+                    outline: none !important;
+                    box-shadow: none !important;
+                    background-color: transparent !important;
+                    text-decoration: none !important;
+                }
+            `}</style>
             <a href="#main" className="skip-to-main-content-link">
                 Saltar al contenido principal
             </a>
@@ -40,15 +62,15 @@ export const Navbar = ({ currentPath = '/' }) => {
                 aria-label="Ir al inicio del SGI TECBA"
             >
                 <img
-                    src="/logo_ba_corto.png"
-                    alt="Habilitacion Inteligente - Inicio"
-                    style={{ height: '60px', width: 'auto', display: 'block' }}
+                    src="/logo_habilitacion.png"
+                    alt="Habilitación Inteligente - Inicio"
+                    style={{ height: '44px', width: 'auto', display: 'block' }}
                 />
             </a>
 
-                <div className="d-none d-lg-flex align-items-center">
+                <div className="d-none d-lg-flex align-items-center ms-auto">
                     <nav aria-label="Navegación principal">
-                        <ul className="nav nav-pills nav-sections mb-0 d-flex flex-row align-items-center gap-1">
+                        <ul className="nav nav-pills nav-sections sgi-nav-links mb-0 d-flex flex-row align-items-center gap-1">
                             {SECCIONES.map((seccion) => {
                                 const activo = seccion.path === currentPath || (seccion.path === '/' && esInicio);
                                 return (
@@ -79,8 +101,8 @@ export const Navbar = ({ currentPath = '/' }) => {
                 </button>
 
                 {isMenuOpen && (
-                    <div className="w-100 d-lg-none mt-3 p-3 bg-white border rounded shadow-sm text-center">
-                        <ul className="nav flex-column gap-2 mb-0">
+                    <div className="w-100 d-lg-none mt-3 p-3 border rounded shadow-sm text-center sgi-nav-transparente">
+                        <ul className="nav flex-column gap-2 mb-0 sgi-nav-links">
                             {SECCIONES.map((seccion) => {
                                 const activo = seccion.path === currentPath || (seccion.path === '/' && esInicio);
                                 return (
@@ -89,7 +111,7 @@ export const Navbar = ({ currentPath = '/' }) => {
                                             className="nav-link text-dark"
                                             href={seccion.href}
                                             onClick={() => setIsMenuOpen(false)}
-                                            style={{ fontWeight: 600, color: activo ? '#1d3557' : undefined }}
+                                            style={{ fontWeight: 600, color: activo ? '#0b2033' : '#1e3a4c' }}
                                             aria-current={activo ? 'page' : undefined}
                                         >
                                             {seccion.label}
