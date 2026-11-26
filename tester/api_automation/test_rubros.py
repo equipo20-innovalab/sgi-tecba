@@ -84,10 +84,13 @@ def test_requisitos_campos_de_cada_item(client):
             assert campo in req, f"Al requisito le falta el campo '{campo}'"
 
 
-def test_requisitos_rubro_inexistente_retorna_404(client):
-    """Un rubro que no existe debe devolver 404, no 500."""
+def test_requisitos_rubro_inexistente_retorna_requisitos_generales(client):
+    """Si el rubro no tiene requisitos específicos, devuelve 200 con el checklist General como fallback."""
     response = client.get("/api/v1/rubros/RubroQueNoExiste123/requisitos")
-    assert response.status_code == 404
+    assert response.status_code == 200
+    data = response.json()
+    assert data["rubro"] == "RubroQueNoExiste123"
+    assert data["total"] == 7  # 7 requisitos generales base
 
 
 def test_requisitos_rubro_general_retorna_7(client):

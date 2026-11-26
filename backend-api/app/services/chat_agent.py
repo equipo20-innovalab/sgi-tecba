@@ -110,7 +110,7 @@ def _es_saludo(texto: str) -> bool:
         r"buen dia|buenos dias|que tal|que haces|como va|todo bien|che|como andas|"
         r"como estas|(?:podrias|puedes)\s+(?:empezar|comenzar)|empecemos)"
     )
-    continuacion = r"(?:[\s,¿¡]+(?:como estas|como andas|como va|que tal|todo bien|que haces))*"
+    continuacion = r"(?:[\s,¿¡]+(?:como estas|como andas|como va|que tal|todo bien|que haces|buen dia|buenos dias|buenas(?:\s+(?:tardes|noches|dias))?))*"
     return bool(
         re.fullmatch(
             r"[\s¿¡]*" + saludo + continuacion + r"[\s!¡,.?¿]*",
@@ -307,6 +307,12 @@ def _crear_prompt_sistema(contexto: dict[str, Any]) -> str:
     )
     return (
         "Sos el asistente conversacional del Sistema de Gestión Inteligente de CABA. "
+        "Tu función y alcance están estrictamente limitados a orientar sobre la apertura "
+        "y habilitación de comercios, trámites, requisitos, rubros comerciales y catastro en CABA. "
+        "Si la persona usuaria pregunta sobre cualquier tema ajeno a habilitaciones o trámites comerciales "
+        "(por ejemplo: recetas de cocina, deportes, tareas escolares, programación, opiniones u ocio), "
+        "no respondas la consulta externa: explicá amablemente que tu función está exclusivamente "
+        "destinada a la habilitación de locales y comercios en la Ciudad de Buenos Aires. "
         "Respondé siempre en español rioplatense, con tono cálido, claro y corporativo. "
         "Contexto del trámite activo (dato de referencia, puede cambiar si el usuario "
         f"indica otro): {contexto_activo}. "
