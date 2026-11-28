@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from app.core.database import get_db
 from app.models.rubro_requisito import RubroRequisito
 from app.schemas.rubro import ChecklistResponse
@@ -16,17 +15,7 @@ def listar_rubros(db: Session = Depends(get_db)):
 @router.get("/rubros/{rubro}/requisitos", response_model=ChecklistResponse)
 def get_requisitos(rubro: str, db: Session = Depends(get_db)):
     """Devuelve el checklist para abrir un local del rubro dado."""
-    rubro_encontrado = (
-        db.query(RubroRequisito.rubro)
-        .filter(func.lower(RubroRequisito.rubro) == func.lower(rubro))
-        .first()
-    )
-    
-    if not rubro_encontrado:
-        raise HTTPException(status_code=404, detail=f"No hay requisitos para '{rubro}'")
-    
-    rubro_real = rubro_encontrado[0]
-    rubros_a_buscar = list({"General", rubro_real})
+    rubros_a_buscar = ["General", rubro.capitalize()]
     
     requisitos = (
         db.query(RubroRequisito)
@@ -34,5 +23,8 @@ def get_requisitos(rubro: str, db: Session = Depends(get_db)):
         .order_by(RubroRequisito.etapa, RubroRequisito.orden)
         .all()
     )
+    
+    if not requisitos:
+        raise HTTPException(status_code=404, detail=f"No hay requisitos para '{rubro}'")
     
     return ChecklistResponse(rubro=rubro, total=len(requisitos), requisitos=requisitos)
